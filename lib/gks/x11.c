@@ -1022,10 +1022,31 @@ void free_rendercolors(void)
 static
 void setup_xform(double *window, double *viewport)
 {
-  p->a = (p->width - 1) / (window[1] - window[0]);
-  p->b = -window[0] * p->a;
-  p->c = (p->height - 1) / (window[2] - window[3]);
-  p->d = p->height - 1 - window[2] * p->c;
+  double aspect_ratio, w, h, x, y;
+
+  aspect_ratio = (p->window[1] - p->window[0]) / (p->window[3] - p->window[2]);
+
+  if (p->width > p->height * aspect_ratio)
+    {
+      fprintf(stderr, "** WIDE **\n");
+      w = p->height * aspect_ratio;
+      h = p->height;
+      x = 0.5 * (p->width - w);
+      y = h;
+    }
+  else
+    {
+      fprintf(stderr, "** TALL **\n");
+      w = p->width;
+      h = p->width / aspect_ratio;
+      x = 0;
+      y = 0.5 * (p->height + h);
+    }
+
+  p->a = w / (window[1] - window[0]);
+  p->b = x - window[0] * p->a;
+  p->c = h / (window[2] - window[3]);
+  p->d = y - 1 - window[2] * p->c;
 }
 
 
@@ -1187,6 +1208,21 @@ void create_window(int win)
   p->event_mask = xswa.event_mask;
 }
 
+
+static
+void set_WM_size_hints(int w, int h)
+{
+  XSizeHints hints;
+
+  if (p->new_win)
+    {
+      hints.flags = PSize;
+      hints.width = w;
+      hints.height = h;
+
+      XSetNormalHints(p->dpy, p->win, &hints);
+    }
+}
 
 static
 void set_WM_hints(void)
@@ -1507,6 +1543,7 @@ void configure_event(XConfigureEvent *event)
   double req_aspect_ratio, cur_aspect_ratio;
   int width, height;
 
+  fprintf(stderr, "** configure_event: %d x %d (old size: %d x %d)\n", event->width, event->height, p->width, p->height);
   if (p->widget || p->gif >= 0 || p->rf >= 0 || p->uil >= 0 || p->frame)
     return;
 
@@ -1523,23 +1560,25 @@ void configure_event(XConfigureEvent *event)
   p->viewport[2] = (p->sheight - (p->y + height)) * p->resolution;
   p->viewport[3] = p->viewport[2] + height * p->resolution;
 
+  fprintf(stderr, "NEW VIEWPORT: (%lf -- %lf) x (%lf -- %lf)\n", p->viewport[0], p->viewport[1], p->viewport[2], p->viewport[3]);
+
   req_aspect_ratio = (p->window[1] - p->window[0]) /
     (p->window[3] - p->window[2]);
   cur_aspect_ratio = (p->viewport[1] - p->viewport[0]) /
     (p->viewport[3] - p->viewport[2]);
 
-  if (cur_aspect_ratio > req_aspect_ratio)
-    {
-      width = (int)(height * req_aspect_ratio);
-      p->viewport[1] = p->viewport[0] + (p->viewport[3] - p->viewport[2]) *
-        req_aspect_ratio;
-    }
-  else
-    {
-      height = (int)(width / req_aspect_ratio);
-      p->viewport[3] = p->viewport[2] + (p->viewport[1] - p->viewport[0]) /
-        req_aspect_ratio;
-    }
+  /* if (cur_aspect_ratio > req_aspect_ratio) */
+  /*   { */
+  /*     width = (int)(height * req_aspect_ratio); */
+  /*     p->viewport[1] = p->viewport[0] + (p->viewport[3] - p->viewport[2]) * */
+  /*       req_aspect_ratio; */
+  /*   } */
+  /* else */
+  /*   { */
+  /*     height = (int)(width / req_aspect_ratio); */
+  /*     p->viewport[3] = p->viewport[2] + (p->viewport[1] - p->viewport[0]) / */
+  /*       req_aspect_ratio; */
+  /*   } */
 
   if (width != p->width || height != p->height)
     {
@@ -1603,12 +1642,11 @@ void wait_for_expose(void)
 
   if (p->new_win)
     {
-      do
-        XWindowEvent(p->dpy, p->win, StructureNotifyMask, &event);
-      while (event.xany.type != MapNotify &&
-             event.xany.type != ConfigureNotify);
-      while (XCheckTypedWindowEvent(p->dpy, p->win, Expose, &event))
-        ;
+      do {
+        XWindowEvent(p->dpy, p->win, StructureNotifyMask | ExposureMask, &event);
+        if (event.xany.type == ConfigureNotify) configure_event((XConfigureEvent *)&event);
+      } while (event.xany.type != MapNotify && event.xany.type != Expose);
+      while (XCheckTypedWindowEvent(p->dpy, p->win, Expose, &event));
     }
 }
 
@@ -2878,11 +2916,16 @@ void update(void)
     {
       if (!p->widget && p->wstype != 212 && !p->backing_store)
         {
+          fprintf(stderr, "---> checking for pending events...\n");
           while (XPending(p->dpy))
             {
               XNextEvent(p->dpy, &event);
               if (event.type == Expose)
                 expose_event(p->widget, p, (XExposeEvent *) &event, NULL);
+              else if (event.type == ConfigureNotify) {
+                 fprintf(stderr, "---> Handling ConfigureEvent in update()\n");
+                 configure_event((XConfigureEvent *) &event);
+              }
             }
         }
       else
@@ -3768,44 +3811,48 @@ void resize_window(void)
       height = nint((p->viewport[3] - p->viewport[2]) * 100);
     }
 
-  x = 4 + nint(p->viewport[0] / p->resolution);
-  y = p->sheight - height - 4 - nint(p->viewport[2] / p->resolution);
+  /* x = 4 + nint(p->viewport[0] / p->resolution); */
+  /* y = p->sheight - height - 4 - nint(p->viewport[2] / p->resolution); */
 
-  if (width != p->width || height != p->height || x != p->x || y != p->y)
+  if (width != p->width || height != p->height) //  || x != p->x || y != p->y)
     {
-      p->x = x;
-      p->y = y;
-      p->width = width;
-      p->height = height;
+      /* p->x = x; */
+      /* p->y = y; */
+      /* p->width = width; */
+      /* p->height = height; */
 
-      if (p->new_win)
-        {
-          XMoveWindow(p->dpy, p->win, p->x, p->y);
-          XResizeWindow(p->dpy, p->win, p->width, p->height);
-        }
-      else
-        XResizeWindow(p->dpy, p->win, p->width, p->height);
+      /* if (p->new_win) */
+      /*   { */
+      /*     XMoveWindow(p->dpy, p->win, p->x, p->y); */
+      /*     XResizeWindow(p->dpy, p->win, p->width, p->height); */
+      /*   } */
+      /* else */
+        /* XResizeWindow(p->dpy, p->win, p->width, p->height); */
+      fprintf(stderr, "**** RESIZING to %d x %d\n", width, height);
+      XResizeWindow(p->dpy, p->win, width, height);
+      XFlush(p->dpy);
+      /* set_WM_size_hints(width, height); */
 
-      if (p->pixmap)
-        {
-          XFreePixmap(p->dpy, p->pixmap);
-          p->pixmap = XCreatePixmap(p->dpy, XRootWindowOfScreen(p->screen),
-                                    p->width, p->height, p->depth);
-          XFillRectangle(p->dpy, p->pixmap, p->clear, 0, 0,
-                         p->width, p->height);
-        }
-      if (p->drawable)
-        {
-          XFreePixmap(p->dpy, p->drawable);
-          p->drawable = XCreatePixmap(p->dpy, XRootWindowOfScreen(p->screen),
-                                      p->width, p->height, p->depth);
-          XFillRectangle(p->dpy, p->drawable, p->clear, 0, 0,
-                         p->width, p->height);
-        }
-#ifdef XSHM
-      free_shared_memory();
-      create_shared_memory();
-#endif
+      /* if (p->pixmap) */
+      /*   { */
+      /*     XFreePixmap(p->dpy, p->pixmap); */
+      /*     p->pixmap = XCreatePixmap(p->dpy, XRootWindowOfScreen(p->screen), */
+      /*                               p->width, p->height, p->depth); */
+      /*     XFillRectangle(p->dpy, p->pixmap, p->clear, 0, 0, */
+      /*                    p->width, p->height); */
+      /*   } */
+      /* if (p->drawable) */
+      /*   { */
+      /*     XFreePixmap(p->dpy, p->drawable); */
+      /*     p->drawable = XCreatePixmap(p->dpy, XRootWindowOfScreen(p->screen), */
+      /*                                 p->width, p->height, p->depth); */
+      /*     XFillRectangle(p->dpy, p->drawable, p->clear, 0, 0, */
+      /*                    p->width, p->height); */
+      /*   } */
+/* #ifdef XSHM */
+      /* free_shared_memory(); */
+      /* create_shared_memory(); */
+/* #endif */
     }
 }
 
@@ -4295,9 +4342,12 @@ void *event_loop(void *arg)
         {
           if (pthread_mutex_trylock(&p->mutex) == 0)
             {
-              if (XCheckTypedWindowEvent(p->dpy, p->win, Expose, &event))
+              if (XCheckTypedWindowEvent(p->dpy, p->win, Expose, &event)) {
                 handle_expose_event(p);
-              else if (XCheckTypedWindowEvent(p->dpy, p->win, ClientMessage,
+              } else if (XCheckTypedWindowEvent(p->dpy, p->win, ConfigureNotify, &event)) {
+                configure_event((XConfigureEvent *) &event);
+                handle_expose_event(p);
+              } else if (XCheckTypedWindowEvent(p->dpy, p->win, ClientMessage,
                                               &event))
                 {
                   if (event.xclient.data.l[0] == p->wmDeleteMessage)
@@ -4827,6 +4877,11 @@ void gks_drv_x11(
 
         resize_window();
         set_WM_hints();
+        if (!p->mapped)
+          map_window();
+
+        XSync(p->dpy, False);
+        update();
 
         setup_xform(p->window, p->viewport);
         set_clipping(True);
