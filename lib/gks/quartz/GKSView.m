@@ -267,7 +267,7 @@ void set_xform(void)
   p->a = w / (p->window[1] - p->window[0]);
   p->b = x - p->window[0] * p->a;
   p->c = h / (p->window[3] - p->window[2]);
-  p->d = y + p->window[2] * p->c;
+  p->d = y - p->window[2] * p->c;
 }
 
 static
@@ -403,6 +403,7 @@ void seg_xform_rel(double *x, double *y)
 
           CGSize screen_size = CGDisplayScreenSize(CGMainDisplayID());
           double mwidth = 0.001 * screen_size.width;
+          double mheight = 0.001 * screen_size.height;
 
           p->width  = [self bounds].size.width;
           p->height = [self bounds].size.height;
@@ -414,7 +415,7 @@ void seg_xform_rel(double *x, double *y)
 
           p->viewport[0] = p->viewport[2] = 0.0;
           p->viewport[1] = p->width  * mwidth / p->swidth;
-          p->viewport[3] = p->height * mwidth / p->sheight;
+          p->viewport[3] = p->height * mheight / p->sheight;
 
           set_xform();
           init_norm_xform();
@@ -1042,7 +1043,7 @@ void seg_xform_rel(double *x, double *y)
 
   screen_size = CGDisplayScreenSize(CGMainDisplayID());
   max_width = 0.001 * screen_size.width;
-  max_height = max_width * p->sheight / p->swidth;
+  max_height = 0.001 * screen_size.height; // correct for non-square pixels
 
   if (!has_been_resized)
     {
@@ -1089,7 +1090,8 @@ static
 void begin_context(CGContextRef context)
 {
   CGContextSaveGState(context);
-  CGContextClipToRect(context, clipRect);
+  if (gkss->clip == GKS_K_CLIP)
+     CGContextClipToRect(context, clipRect);
 }
 
 static
