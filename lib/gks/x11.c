@@ -1022,25 +1022,25 @@ void free_rendercolors(void)
 static
 void setup_xform(double *window, double *viewport)
 {
-  double aspect_ratio, w, h, x, y;
+  double ww = p->window[1] - p->window[0];
+  double wh = p->window[3] - p->window[2];
+  double vw = p->width - 1, vh = p->height - 1; // pixel centre-to-centre dimensions
+  double vh_ww = vh*ww, vw_wh = vw * wh;
+  double w, h, x, y;
 
-  aspect_ratio = (p->window[1] - p->window[0]) / (p->window[3] - p->window[2]);
-
-  if (p->width > p->height * aspect_ratio)
+  if (vw_wh > vh_ww) // WS viewport is wider than aspect ratio of WS window
     {
-      fprintf(stderr, "** WIDE **\n");
-      w = p->height * aspect_ratio;
-      h = p->height;
-      x = 0.5 * (p->width - w);
+      w = vh_ww / wh;
+      h = vh;
+      x = (vw - w)/2;
       y = h;
     }
-  else
+  else // WS viewport is taller than aspect ratio of WS window
     {
-      fprintf(stderr, "** TALL **\n");
-      w = p->width;
-      h = p->width / aspect_ratio;
+      w = vw;
+      h = vw_wh / ww;
       x = 0;
-      y = 0.5 * (p->height + h);
+      y = (vh + h)/2;
     }
 
   p->a = w / (window[1] - window[0]);
@@ -1210,21 +1210,6 @@ void create_window(int win)
 
 
 static
-void set_WM_size_hints(int w, int h)
-{
-  XSizeHints hints;
-
-  if (p->new_win)
-    {
-      hints.flags = PSize;
-      hints.width = w;
-      hints.height = h;
-
-      XSetNormalHints(p->dpy, p->win, &hints);
-    }
-}
-
-static
 void set_WM_hints(void)
 {
   XSizeHints hints;
@@ -1238,7 +1223,7 @@ void set_WM_hints(void)
       hints.width = p->width;
       hints.height = p->height;
 
-      XSetNormalHints(p->dpy, p->win, &hints);
+      XSetWMNormalHints(p->dpy, p->win, &hints);
 
       if (p->gif >= 0 || p->rf >= 0)
         {
@@ -1560,25 +1545,10 @@ void configure_event(XConfigureEvent *event)
   p->viewport[2] = (p->sheight - (p->y + height)) * p->resolution;
   p->viewport[3] = p->viewport[2] + height * p->resolution;
 
-  fprintf(stderr, "NEW VIEWPORT: (%lf -- %lf) x (%lf -- %lf)\n", p->viewport[0], p->viewport[1], p->viewport[2], p->viewport[3]);
-
   req_aspect_ratio = (p->window[1] - p->window[0]) /
     (p->window[3] - p->window[2]);
   cur_aspect_ratio = (p->viewport[1] - p->viewport[0]) /
     (p->viewport[3] - p->viewport[2]);
-
-  /* if (cur_aspect_ratio > req_aspect_ratio) */
-  /*   { */
-  /*     width = (int)(height * req_aspect_ratio); */
-  /*     p->viewport[1] = p->viewport[0] + (p->viewport[3] - p->viewport[2]) * */
-  /*       req_aspect_ratio; */
-  /*   } */
-  /* else */
-  /*   { */
-  /*     height = (int)(width / req_aspect_ratio); */
-  /*     p->viewport[3] = p->viewport[2] + (p->viewport[1] - p->viewport[0]) / */
-  /*       req_aspect_ratio; */
-  /*   } */
 
   if (width != p->width || height != p->height)
     {
@@ -2923,7 +2893,6 @@ void update(void)
               if (event.type == Expose)
                 expose_event(p->widget, p, (XExposeEvent *) &event, NULL);
               else if (event.type == ConfigureNotify) {
-                 fprintf(stderr, "---> Handling ConfigureEvent in update()\n");
                  configure_event((XConfigureEvent *) &event);
               }
             }
@@ -3796,7 +3765,7 @@ void cell_array(
 static
 void resize_window(void)
 {
-  int x, y, width, height;
+  int width, height;
 
   if (p->uil < 0)
     {
@@ -3811,49 +3780,8 @@ void resize_window(void)
       height = nint((p->viewport[3] - p->viewport[2]) * 100);
     }
 
-  /* x = 4 + nint(p->viewport[0] / p->resolution); */
-  /* y = p->sheight - height - 4 - nint(p->viewport[2] / p->resolution); */
-
-  if (width != p->width || height != p->height) //  || x != p->x || y != p->y)
-    {
-      /* p->x = x; */
-      /* p->y = y; */
-      /* p->width = width; */
-      /* p->height = height; */
-
-      /* if (p->new_win) */
-      /*   { */
-      /*     XMoveWindow(p->dpy, p->win, p->x, p->y); */
-      /*     XResizeWindow(p->dpy, p->win, p->width, p->height); */
-      /*   } */
-      /* else */
-        /* XResizeWindow(p->dpy, p->win, p->width, p->height); */
-      fprintf(stderr, "**** RESIZING to %d x %d\n", width, height);
+  if (width != p->width || height != p->height)
       XResizeWindow(p->dpy, p->win, width, height);
-      XFlush(p->dpy);
-      /* set_WM_size_hints(width, height); */
-
-      /* if (p->pixmap) */
-      /*   { */
-      /*     XFreePixmap(p->dpy, p->pixmap); */
-      /*     p->pixmap = XCreatePixmap(p->dpy, XRootWindowOfScreen(p->screen), */
-      /*                               p->width, p->height, p->depth); */
-      /*     XFillRectangle(p->dpy, p->pixmap, p->clear, 0, 0, */
-      /*                    p->width, p->height); */
-      /*   } */
-      /* if (p->drawable) */
-      /*   { */
-      /*     XFreePixmap(p->dpy, p->drawable); */
-      /*     p->drawable = XCreatePixmap(p->dpy, XRootWindowOfScreen(p->screen), */
-      /*                                 p->width, p->height, p->depth); */
-      /*     XFillRectangle(p->dpy, p->drawable, p->clear, 0, 0, */
-      /*                    p->width, p->height); */
-      /*   } */
-/* #ifdef XSHM */
-      /* free_shared_memory(); */
-      /* create_shared_memory(); */
-/* #endif */
-    }
 }
 
 
@@ -4881,7 +4809,7 @@ void gks_drv_x11(
           map_window();
 
         XSync(p->dpy, False);
-        update();
+        update(); // FIXME this does not seem to be flushing the resize events properly
 
         setup_xform(p->window, p->viewport);
         set_clipping(True);
