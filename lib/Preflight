@@ -43,14 +43,15 @@ cairodefs=""
 ssldefs=""
 extradefs=""
 if [ `uname` = "Darwin" ]; then
+  QT5_QMAKE=/opt/local/libexec/qt5/bin/qmake
   if [ -z "${EXTRA_CFLAGS}" ]; then
-    EXTRA_CFLAGS="-I/usr/local/include"
+    EXTRA_CFLAGS=-I/opt/local/include
   fi
   if [ -z "${EXTRA_CXXFLAGS}" ]; then
-    EXTRA_CXXFLAGS="-I/usr/local/include"
+    EXTRA_CXXFLAGS=-I/opt/local/include
   fi
   if [ -z "${EXTRA_LDFLAGS}" ]; then
-    EXTRA_LDFLAGS="-L/usr/local/lib"
+    EXTRA_LDFLAGS=-L/opt/local/lib
   fi
 fi
 if [ ! -z "${EXTRA_CFLAGS}" ]; then
@@ -245,7 +246,7 @@ int main(int argc, char **argv)
 }
 eof
   if [ `uname` = "Darwin" ]; then
-    x11path="/opt/X11"
+    x11path=$(dirname $(pkg-config --cflags-only-I x11 | sed -e 's/-I//'))
   elif [ -d /usr/X11R6 ]; then
     x11path="/usr/X11R6"
   else
