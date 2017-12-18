@@ -103,8 +103,8 @@ int usleep(useconds_t);
     yw = ((yn) - d[tnr]) / c[tnr]
 
 #define NDC_to_DC(xn, yn, xd, yd) \
-    xd = sint(p->a * (xn) + p->b + 0.5); \
-    yd = sint(p->c * (yn) + p->d + 0.5); \
+    xd = sint(p->a * (xn) + p->b); \
+    yd = sint(p->c * (yn) + p->d); \
     update_bbox(xd, yd)
 
 #define DC_to_NDC(xd, yd, xn, yn) \
@@ -541,9 +541,9 @@ int *handler(Display *dpy, XErrorEvent *event)
 static
 int sint(double a)
 {
-  if (a > 65535)
+  if (a >= 65535)
     return 65535;
-  else if (a < -65535)
+  else if (a <= -65535)
     return -65535;
   else
     return (int)(a + 0.5);
@@ -647,10 +647,10 @@ void set_clipping(Bool state)
       i = clrt[0] < clrt[1] ? 0 : 1;
       j = clrt[2] < clrt[3] ? 2 : 3;
 
-      rt.x = (int)(p->a * clrt[i] + p->b);
-      rt.y = (int)(p->c * clrt[5 - j] + p->d);
-      rt.width = (int)(p->a * (clrt[1 - i] - clrt[i])) + 2;
-      rt.height = (int)(p->c * (clrt[j] - clrt[5 - j])) + 2;
+      rt.x = sint(p->a * clrt[i] + p->b);
+      rt.y = sint(p->c * clrt[5 - j] + p->d);
+      rt.width = sint(p->a * clrt[1 - i] + p->b) - rt.x + 1;
+      rt.height = sint(p->c * clrt[j] + p->d) - rt.y + 1;
 
       XSetClipRectangles(p->dpy, p->gc, 0, 0, &rt, 1, Unsorted);
     }
@@ -1046,7 +1046,7 @@ void setup_xform(double *window, double *viewport)
   p->a = w / (window[1] - window[0]);
   p->b = x - window[0] * p->a;
   p->c = h / (window[2] - window[3]);
-  p->d = y - 1 - window[2] * p->c;
+  p->d = y - window[2] * p->c;
 }
 
 
@@ -2886,7 +2886,6 @@ void update(void)
     {
       if (!p->widget && p->wstype != 212 && !p->backing_store)
         {
-          fprintf(stderr, "---> checking for pending events...\n");
           while (XPending(p->dpy))
             {
               XNextEvent(p->dpy, &event);
@@ -4908,8 +4907,8 @@ void gks_drv_x11(
         {
           int i, xoff, yoff;
 
-          xoff = sint(p->a * r1[0] + 0.5);
-          yoff = sint(p->c * r2[0] + 0.5);
+          xoff = sint(p->a * r1[0]);
+          yoff = sint(p->c * r2[0]);
 
           set_clipping(False);
           XCopyArea(p->dpy, p->pixmap, p->win, p->gc,
@@ -4933,8 +4932,8 @@ void gks_drv_x11(
         {
           int i, xoff, yoff;
 
-          xoff = sint(p->a * r1[0] + 0.5);
-          yoff = sint(p->c * r2[0] + 0.5);
+          xoff = sint(p->a * r1[0]);
+          yoff = sint(p->c * r2[0]);
 
           set_clipping(False);
           XCopyArea(p->dpy, p->pixmap, p->win, p->gc,
