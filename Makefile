@@ -1,5 +1,5 @@
       GRDIR = /usr/local/gr
-     CONFIG = xft=no
+     CONFIG = xft=yes
        DIRS = lib/gr lib/gr3
   PYTHONBIN = $(shell dirname `which python`)
 ANACONDABIN = /usr/local/anaconda2/bin
