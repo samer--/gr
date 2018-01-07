@@ -130,7 +130,7 @@ NSTask *task = NULL;
     }
     [mutex unlock];
 
-    usleep(100000);
+    usleep(500000);
     }
   [pool drain];
 }
