@@ -31,7 +31,7 @@
 - (int) GKSQuartzCreateWindow
 {
   int win = [self getNextWindowID];
- 
+
   if (win < MAX_WINDOWS)
     {
       curr_win_id = win;
@@ -49,11 +49,11 @@
       [window[win] makeKeyAndOrderFront: nil];
       [window[win] setTitle: @"GKSTerm"];
       [window[win] display];
-      
+
       [view[win] setWinID: win];
-      
+
       cascadingPoint = [window[win] cascadeTopLeftFromPoint: cascadingPoint];
-      
+
       close_window[win] = YES;
       [[NSNotificationCenter defaultCenter] addObserver:self
               selector:@selector(windowWillClose:) name:NSWindowWillCloseNotification
