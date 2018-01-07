@@ -127,28 +127,27 @@ void gks_ddlk(
   gks_list_t *list;
   ws_list_t *ws;
   int have_id;
-
   switch (fctid)
     {
-    case OPEN_WS:
-    case CLOSE_WS:
-    case ACTIVATE_WS:
-    case DEACTIVATE_WS:
-    case CLEAR_WS:
-    case REDRAW_SEG_ON_WS:
-    case UPDATE_WS:
-    case SET_DEFERRAL_STATE:
-    case MESSAGE:
-    case SET_COLOR_REP:
-    case SET_WS_WINDOW:
-    case SET_WS_VIEWPORT:
-    case ASSOC_SEG_WITH_WS:
-    case COPY_SEG_TO_WS:
-    case INITIALIZE_LOCATOR:
-    case REQUEST_LOCATOR:
-    case REQUEST_STROKE:
-    case REQUEST_CHOICE:
-    case REQUEST_STRING:
+    case OPEN_WS: // 2
+    case CLOSE_WS: // 3
+    case ACTIVATE_WS: // 4
+    case DEACTIVATE_WS: // 5
+    case CLEAR_WS: // 6
+    case REDRAW_SEG_ON_WS: // 7
+    case UPDATE_WS: // 8
+    case SET_DEFERRAL_STATE: // 9
+    case MESSAGE: // 10
+    case SET_COLOR_REP: // 48
+    case SET_WS_WINDOW: // 54
+    case SET_WS_VIEWPORT: // 55
+    case ASSOC_SEG_WITH_WS: // 61
+    case COPY_SEG_TO_WS: // 62
+    case INITIALIZE_LOCATOR: // 69
+    case REQUEST_LOCATOR: // 81
+    case REQUEST_STROKE: // 82
+    case REQUEST_CHOICE: // 84
+    case REQUEST_STRING: // 86
       have_id = 1;
       break;
 
