@@ -1438,7 +1438,7 @@ void fill_routine(int n, double *px, double *py, int tnr)
 
 - (void) fillarea: (int) n : (double *)px : (double *)py
 {
-  int fl_inter, fl_style, fl_color, i = 0;
+  int fl_inter, i = 0;
   double x, y;
 
   if (n > num_points)
@@ -1456,44 +1456,63 @@ void fill_routine(int n, double *px, double *py, int tnr)
     }
 
   fl_inter = gkss->asf[10] ? gkss->ints : predef_ints[gkss->findex - 1];
-  fl_style = gkss->asf[11] ? gkss->styli : predef_styli[gkss->findex - 1];
-  fl_color = gkss->asf[12] ? gkss->facoli : 1;
-
-  [self set_stroke_color: fl_color : context];
 
   if (fl_inter == GKS_K_INTSTYLE_HOLLOW)
-    {
+    { // use current line paremters for hollow polygons
+      int ln_type  = gkss->asf[0] ? gkss->ltype : gkss->lindex;
+      int ln_color = gkss->asf[2] ? gkss->plcoli : 1;
+      double ln_width = gkss->asf[1] ? gkss->lwidth : 1;
+
+      [self set_stroke_color: ln_color : context];
       begin_context(context);
+      if (ln_type != 1)
+        {
+          CGFloat lengths[10] = {0., 0., 0., 0., 0., 0., 0., 0., 0., 0. };
+          int dashlist[10];
+
+          gks_get_dash_list(ln_type, ln_width, dashlist);
+          for (i = 1 ; i<= dashlist[0]; ++i)
+            lengths[i-1] = (float) dashlist[i];
+
+          CGContextSetLineDash(context, 0.0, lengths, dashlist[0]);
+        }
       CGContextBeginPath(context);
-      CGContextSetLineWidth(context, 1);
+      CGContextSetLineWidth(context, ln_width);
       CGContextAddLines(context, points, n);
       CGContextClosePath(context);
       CGContextDrawPath(context, kCGPathStroke);
       end_context(context);
     }
-  else if (fl_inter == GKS_K_INTSTYLE_SOLID)
+  else
     {
-      begin_context(context);
-      [self set_fill_color: fl_color : context];
-      CGContextBeginPath(context);
-      CGContextSetLineWidth(context, 1);
-      CGContextAddLines(context, points, n);
-      CGContextClosePath(context);
-      CGContextDrawPath(context, kCGPathFillStroke);
-      end_context(context);
-    }
-  else if (fl_inter == GKS_K_INTSTYLE_PATTERN ||
-           fl_inter == GKS_K_INTSTYLE_HATCH)
-    {
-      [self set_fill_color: fl_color : context];
-      if (fl_inter == GKS_K_INTSTYLE_HATCH)
-        fl_style += HATCH_STYLE;
-      if (fl_style >= PATTERNS)
-        fl_style = 1;
+      int fl_style = gkss->asf[11] ? gkss->styli : predef_styli[gkss->findex - 1];
+      int fl_color = gkss->asf[12] ? gkss->facoli : 1;
+      [self set_stroke_color: fl_color : context];
 
-      pattern_ = fl_style;
-      fill_routine(n, px, py, gkss->cntnr);
-      pattern_ = -1;
+      if (fl_inter == GKS_K_INTSTYLE_SOLID)
+        {
+          begin_context(context);
+          [self set_fill_color: fl_color : context];
+          CGContextBeginPath(context);
+          CGContextSetLineWidth(context, 1);
+          CGContextAddLines(context, points, n);
+          CGContextClosePath(context);
+          CGContextDrawPath(context, kCGPathFillStroke);
+          end_context(context);
+        }
+      else if (fl_inter == GKS_K_INTSTYLE_PATTERN ||
+               fl_inter == GKS_K_INTSTYLE_HATCH)
+        {
+          [self set_fill_color: fl_color : context];
+          if (fl_inter == GKS_K_INTSTYLE_HATCH)
+            fl_style += HATCH_STYLE;
+          if (fl_style >= PATTERNS)
+            fl_style = 1;
+
+          pattern_ = fl_style;
+          fill_routine(n, px, py, gkss->cntnr);
+          pattern_ = -1;
+        }
     }
 }
 
