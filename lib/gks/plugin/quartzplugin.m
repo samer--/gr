@@ -282,11 +282,11 @@ void gks_quartzplugin(
       }
       break;
 
-      case 6:
+   case CLEAR_WS:
       break;
 
-      case UPDATE_WS:
-      if (ia[1] == GKS_K_PERFORM_FLAG)
+   case UPDATE_WS:
+      if (ia[1] == GKS_K_PERFORM_FLAG) // TODO: maybe remove this test
         {
           [mutex lock];
           [wss->displayList initWithBytesNoCopy: wss->dl.buffer
