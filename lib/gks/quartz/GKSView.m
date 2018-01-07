@@ -1064,15 +1064,14 @@ void seg_xform_rel(double *x, double *y)
       p->viewport[3] = height * max_height / p->sheight;
     }
 
-  if (p->width != width || p->height != height)
+  if (fabs(p->width - width) > 1e-6 || fabs(p->height - height) > 1e-6)
     {
-      rect.origin.y   += rect.size.height - height;
-      rect.size.width  = width;
-      rect.size.height = height;
-
+      NSLog(@"mismatch: %lg, %lg", width - p->width, height - p->height);
       NSSize contentSize = [[self window] contentRectForFrameRect: rect].size;
-      rect.size.width += width - contentSize.width;
+
+      rect.size.width  += width - contentSize.width;
       rect.size.height += height - contentSize.height;
+      rect.origin.y    += contentSize.height - height;
 
       p->width  = width;
       p->height = height;
