@@ -39,7 +39,7 @@
       NSRect screenFrame = [[[NSScreen screens] objectAtIndex:0] frame];
       window[win] = [[NSWindow alloc]
                       initWithContentRect: NSMakeRect(NSMinX(screenFrame), NSMaxY(screenFrame) - 500, 500, 500)
-                      styleMask: NSTitledWindowMask | NSClosableWindowMask |
+                      styleMask: NSTitledWindowMask | //NSClosableWindowMask |
                       NSMiniaturizableWindowMask | NSResizableWindowMask
                       backing: NSBackingStoreBuffered defer: NO];
       [window[win] setBackgroundColor: [NSColor colorWithCalibratedWhite: 1 alpha: 1]];
