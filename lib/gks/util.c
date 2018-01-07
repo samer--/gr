@@ -16,10 +16,6 @@
 #include "gks.h"
 #include "gkscore.h"
 
-#ifndef MAXPATHLEN
-#define MAXPATHLEN 1024
-#endif
-
 #define nint(a) ((int)(a + 0.5))
 
 #ifndef MIN
@@ -3183,37 +3179,31 @@ int *gks_resize(int *image, int width, int height, int w, int h)
   return result;
 }
 
-void gks_filepath(
-  char *path, char *defpath, const char *type, int page, int index)
+char *gks_filepath(const char *defpath, const char *type, int page, int index)
 {
-  char number[20], *p;
-  const char *env;
+  char *path, *p;
+  const char *env, *base, *dot;
+  size_t len, base_len;
 
   env = gks_getenv("GKS_FILEPATH");
-  if (env)
-    strcpy(path, env);
-  else if (defpath != NULL)
-    strcpy(path, defpath);
-  else
-    strcpy(path, "gks");
+  base = env ? env : defpath ? defpath : "gks";
 
-  p = strrchr(path, '.');
-  if (p) *p = '\0';
+  dot = strrchr(base, '.');
+  base_len = dot ?dot-base : strlen(base);
+  len = base_len;
 
   if (page > 1)
-    {
-       strcat(path, "-");
-       sprintf(number, "%d", page);
-       strcat(path, number);
-     }
+    len += snprintf(NULL, 0, "-%d", page);
   if (index != 0)
-    {
-       strcat(path, "_");
-       sprintf(number, "%d", index);
-       strcat(path, number);
-     }
-  strcat(path, ".");
-  strcat(path, type);
+    len += snprintf(NULL, 0, "_%d", index);
+  path = (char *)calloc(len+1, sizeof(char));
+  memcpy(path, base, base_len);
+  p = path + base_len;
+
+  if (page > 1)   p += sprintf(p, "-%d", page);
+  if (index != 0) p += sprintf(p, "_%d", index);
+  p += sprintf(p, ".%s", type); // assert p-path == len
+  return path;
 }
 
 void gks_adjust_cellarray(

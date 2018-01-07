@@ -11,10 +11,6 @@
 
 #include "gkscore.h"
 
-#ifndef MAXPATHLEN
-#define MAXPATHLEN 1024
-#endif
-
 #ifdef _WIN32
 #define EXTENSION "dll"
 #else
@@ -32,7 +28,7 @@
 static
 void *load_library(const char *name)
 {
-  char pathname[MAXPATHLEN], symbol[255];
+  char *pathname, symbol[255];
 #ifdef _WIN32
   HINSTANCE handle;
   LPCTSTR grdir;
@@ -42,7 +38,7 @@ void *load_library(const char *name)
 #endif
   void *entry = NULL;
 
-  sprintf(pathname, "%s.%s", name, EXTENSION);
+  asprintf(&pathname, "%s.%s", name, EXTENSION);
 #ifdef _WIN32
   handle = LoadLibrary(pathname);
   if (handle == NULL)
@@ -57,7 +53,8 @@ void *load_library(const char *name)
   handle = dlopen(pathname, RTLD_LAZY);
   if (handle == NULL)
     {
-      sprintf(pathname, "%s/%s.%s", "./", name, EXTENSION);
+      free(pathname);
+      asprintf(&pathname, "%s/%s.%s", "./", name, EXTENSION);
       handle = dlopen(pathname, RTLD_LAZY);
     }
   if (handle == NULL)
@@ -65,7 +62,8 @@ void *load_library(const char *name)
       grdir = gks_getenv("GRDIR");
       if (grdir == NULL)
         grdir = GRDIR;
-      sprintf(pathname, "%s/lib/%s.%s", grdir, name, EXTENSION);
+      free(pathname);
+      asprintf(&pathname, "%s/lib/%s.%s", grdir, name, EXTENSION);
       handle = dlopen(pathname, RTLD_LAZY);
     }
 #endif
@@ -100,6 +98,7 @@ void *load_library(const char *name)
 #endif
     }
 
+  free(pathname);
   return entry;
 }
 

@@ -13,10 +13,6 @@
 #include "gks.h"
 #include "gkscore.h"
 
-#ifndef MAXPATHLEN
-#define MAXPATHLEN 1024
-#endif
-
 #ifndef DBL_EPSILON
 #define DBL_EPSILON 2.2204460492503131e-16
 #endif
@@ -565,12 +561,7 @@ void gks_open_ws(int wkid, char *path, int wtype)
                       if (path == NULL)
                         {
                           if (descr->type != NULL)
-                            {
-                              path = (char *) malloc(MAXPATHLEN * sizeof(char));
-                              gks_filepath(path, NULL, descr->type, 1, 0);
-                              ws->path = strdup(path);
-                              free(path);
-                            }
+                            ws->path = gks_filepath(NULL, descr->type, 1, 0);
                           else
                             ws->path = NULL;
                         }

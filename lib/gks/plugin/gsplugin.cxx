@@ -80,10 +80,6 @@ DLLEXPORT void gks_gsplugin(
 #define M_PI 3.14159265358979323846
 #endif
 
-#ifndef MAXPATHLEN
-#define MAXPATHLEN 1024
-#endif
-
 #define SIZE_INCREMENT 32768
 
 #define PATTERNS 120
@@ -1639,9 +1635,8 @@ int GSDLLCALL gsdll_stderr(void *instance, const char *buf, int len)
 static
 void init_arguments(void)
 {
-  char path[MAXPATHLEN];
+  char *path;
   const char *device = "jpeg", *type = ".jpg";
-  int i;
 
   p->page_counter++;
 
@@ -1653,28 +1648,24 @@ void init_arguments(void)
       case 323: device = "tiff24nc"; type = "tif"; break;
     }
 
-  gks_filepath(path, p->path, type, p->page_counter, 0);
+  path = gks_filepath(p->path, type, p->page_counter, 0);
 
   p->gs_argc = NUM_GS_ARGS;
-  for (i = 0; i < NUM_GS_ARGS; ++i)
-    {
-      p->gs_argv[i] = (char *) malloc(MAXPATHLEN * sizeof(char));
-    }
 
 #ifdef _WIN32
-  sprintf(p->gs_argv[0], "gswin32c");
+  asprintf(&p->gs_argv[0], "gswin32c");
 #else
-  sprintf(p->gs_argv[0], "gs");
+  asprintf(&p->gs_argv[0], "gs");
 #endif
-  sprintf(p->gs_argv[1], "-sDEVICE=%s", device);
-  sprintf(p->gs_argv[2], "-g%dx%d",
-          (int) (p->viewpt[1] * 100.0 * 600.0 / 2.54),
-          (int) (p->viewpt[3] * 100.0 * 600.0 / 2.54));
-  sprintf(p->gs_argv[3], "-r600x600");
-  sprintf(p->gs_argv[4], "-sOutputFile=%s", path);
-  sprintf(p->gs_argv[5], "-dGraphicsAlphaBits=4");
-  sprintf(p->gs_argv[6], "-dTextAlphaBits=4");
-  sprintf(p->gs_argv[7], "-");
+  asprintf(&p->gs_argv[1], "-sDEVICE=%s", device);
+  asprintf(&p->gs_argv[2], "-g%dx%d",
+           (int) (p->viewpt[1] * 100.0 * 600.0 / 2.54),
+           (int) (p->viewpt[3] * 100.0 * 600.0 / 2.54));
+  asprintf(&p->gs_argv[3], "-r600x600");
+  asprintf(&p->gs_argv[4], "-sOutputFile=%s", path);
+  asprintf(&p->gs_argv[5], "-dGraphicsAlphaBits=4");
+  asprintf(&p->gs_argv[6], "-dTextAlphaBits=4");
+  asprintf(&p->gs_argv[7], "-");
 }
 
 static

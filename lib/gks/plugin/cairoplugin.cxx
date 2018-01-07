@@ -78,10 +78,6 @@ DLLEXPORT void gks_cairoplugin(
 #define M_PI 3.14159265358979323846
 #endif
 
-#ifndef MAXPATHLEN
-#define MAXPATHLEN 1024
-#endif
-
 #define MAX_TNR 9
 
 #define WC_to_NDC(xw, yw, tnr, xn, yn)          \
@@ -1394,7 +1390,7 @@ void write_to_six(char *path, int width, int height, unsigned char *data)
 static
 void write_page(void)
 {
-  char path[MAXPATHLEN];
+  char *path;
   unsigned char *data, *pix;
   int width, height, stride;
   double alpha;
@@ -1407,8 +1403,9 @@ void write_page(void)
 
   if (p->wtype == 140)
     {
-      gks_filepath(path, p->path, "png", p->page_counter, 0);
+      path = gks_filepath(p->path, "png", p->page_counter, 0);
       cairo_surface_write_to_png(p->surface, path);
+      free(path);
     }
 #ifndef NO_X11
   else if (p->wtype == 141)
@@ -1435,8 +1432,9 @@ void write_page(void)
           pix[l++] = 255;
         }
       }
-      gks_filepath(path, p->path, "six", p->page_counter, 0);
+      path = gks_filepath(p->path, "six", p->page_counter, 0);
       write_to_six(path, width, height, pix);
+      free(path);
       free(pix);
     }
 }

@@ -77,10 +77,6 @@ typedef unsigned long uLong;
 #define M_PI 3.14159265358979323846
 #endif
 
-#ifndef MAXPATHLEN
-#define MAXPATHLEN 1024
-#endif
-
 #ifndef min
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #endif
@@ -581,7 +577,7 @@ void pdf_close(PDF *p)
   frame_t *frames;
   char *env = NULL;
   int framerate = 25;
-  char path[MAXPATHLEN];
+  char *path;
 
   pdf_printf(p->stream, "%%PDF-1.%d\n", p->compress ? 2 : 0);
   pdf_printf(p->stream, "%%\344\343\317\322\n");  /* %âãÏÓ\n */
@@ -905,9 +901,10 @@ void pdf_close(PDF *p)
     framerate = 25;
 
   if (p->wstype == 120) {
-    gks_filepath(path, p->path, "mov", 0, 0);
+    path = gks_filepath(p->path, "mov", 0, 0);
 
     movie = vc_movie_create(path, framerate, 4000000);
+    free(path);
 
     pdf = vc_pdf_from_memory(p->stream->buffer, p->stream->length);
     frames = vc_pdf_to_frames(pdf, p->width, p->height);
@@ -920,7 +917,7 @@ void pdf_close(PDF *p)
     vc_pdf_close(pdf);
     vc_movie_finish(movie);
   } else {
-    gks_filepath(path, p->path, "gif", 0, 0);
+    path = gks_filepath(p->path, "gif", 0, 0);
     unsigned char *rgb_image;
     int delay = 100 / framerate;
     int num_frames;
@@ -942,6 +939,7 @@ void pdf_close(PDF *p)
 
     gif_close(&gw);
     fprintf(stderr, "\rFinished writing %s.\n", path);
+    free(path);
 
 #ifdef MUPDF_API_VERSION_17
     fz_drop_document(pdf->ctx, pdf->doc);

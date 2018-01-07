@@ -46,10 +46,6 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-#ifndef MAXPATHLEN
-#define MAXPATHLEN 1024
-#endif
-
 #ifdef _WIN32
 
 #include <windows.h>

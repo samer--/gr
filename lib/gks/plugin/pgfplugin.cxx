@@ -29,10 +29,6 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-#ifndef MAXPATHLEN
-#define MAXPATHLEN 1024
-#endif
-
 #ifdef _WIN32
 
 #include <windows.h>
@@ -823,7 +819,7 @@ void cellarray(double xmin, double xmax, double ymin, double ymax,
   png_infop info_ptr;
   png_bytep *row_pointers;
   FILE *stream;
-  char filename[MAXPATHLEN];
+  char *filename;
 
   WC_to_NDC(xmin, ymax, gkss->cntnr, x1, y1);
   seg_xform(&x1, &y1);
@@ -839,9 +835,10 @@ void cellarray(double xmin, double xmax, double ymin, double ymax,
   x = min(ix1, ix2);
   y = min(iy1, iy2);
 
-  gks_filepath(filename, p->path, "png", p->page_counter, p->png_counter);
+  filename = gks_filepath(p->path, "png", p->page_counter, p->png_counter);
   if ((stream = fopen(filename, "wb")) == NULL)
     {
+      free(filename);
       gks_perror("can't open temporary file");
       perror("open");
       return;
@@ -906,6 +903,7 @@ void cellarray(double xmin, double xmax, double ymin, double ymax,
              " {\\includegraphics{%s}};\n\\end{scope}\n",
              2*y, filename, x, y, filename);
   p->png_counter++;
+  free(filename);
 }
 
 static
@@ -940,7 +938,7 @@ void set_clipping(int idx)
 static
 void write_page(void)
 {
-  char filename[MAXPATHLEN];
+  char *filename;
   char buf[256];
   int fd;
 
@@ -948,8 +946,9 @@ void write_page(void)
 
   if (p->conid == 0)
     {
-      gks_filepath(filename, p->path, "tex", p->page_counter, 0);
+      filename = gks_filepath(p->path, "tex", p->page_counter, 0);
       fd = gks_open_file(filename, "w");
+      free(filename);
     }
   else
     fd = p->conid;

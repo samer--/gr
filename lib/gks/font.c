@@ -13,17 +13,18 @@
 #include "gks.h"
 #include "gkscore.h"
 
-#ifndef MAXPATHLEN
-#define MAXPATHLEN 1024
+#ifndef _WIN32
+#define FONT_DB_SUFFIX "/fonts/gksfont.dat"
+#else
+#define FONT_DB_SUFFIX "\\FONTS\\GKSFONT.DAT"
 #endif
-
 static
 int font_cache[95], bufcache[95][256], gks = -1;
 
 int gks_open_font(void)
 {
   const char *path;
-  char fontdb[MAXPATHLEN];
+  char *fontdb;
   int fd;
 
   path = gks_getenv("GKS_FONTPATH");
@@ -33,13 +34,9 @@ int gks_open_font(void)
       if (path == NULL)
         path = GRDIR;
     }
-  strcpy(fontdb, (char *) path);
-#ifndef _WIN32
-  strcat(fontdb, "/fonts/gksfont.dat");
-#else
-  strcat(fontdb, "\\FONTS\\GKSFONT.DAT");
-#endif
+  asprintf(&fontdb, "%s%s", path, FONT_DB_SUFFIX);
   fd = gks_open_file(fontdb, "r");
+  free(fontdb);
 
   return fd;
 }

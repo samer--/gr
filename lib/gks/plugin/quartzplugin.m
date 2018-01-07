@@ -10,10 +10,6 @@
 #include "gkscore.h"
 #include "gksquartz.h"
 
-#ifndef MAXPATHLEN
-#define MAXPATHLEN 1024
-#endif
-
 #ifdef _WIN32
 
 #include <windows.h>

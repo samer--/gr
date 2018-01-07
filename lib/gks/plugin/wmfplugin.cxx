@@ -25,10 +25,6 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-#ifndef MAXPATHLEN
-#define MAXPATHLEN 1024
-#endif
-
 #ifdef _WIN32
 
 #include <windows.h>
@@ -1342,15 +1338,16 @@ void set_clip_path(int tnr)
 static
 void write_page(void)
 {
-  char path[MAXPATHLEN];
+  char *path;
   FILE *stream;
 
   p->page_counter++;
 
   if (p->conid == 0)
     {
-      gks_filepath(path, p->path, "wmf", p->page_counter, 0);
+      path = gks_filepath(p->path, "wmf", p->page_counter, 0);
       stream = fopen(path, "wb");
+      free(path);
     }
   else
     stream = fdopen(p->conid, "wb"); 
