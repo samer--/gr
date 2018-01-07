@@ -398,6 +398,10 @@ void seg_xform_rel(double *x, double *y)
           gkss = &gkss_;
           p = &p_;
 
+			 /* { // TODO if we could get old of wkid here, we could set the title */
+			 /*   NSString *title = [NSString stringWithFormat:@"GKSTerm (ws %d)", wkid]; */
+			 /*   [[self window] setTitle: title]; */
+			 /* } */
           memmove(&saved_gkss, gkss, sizeof(gks_state_list_t));
           memmove(gkss, sl, sizeof(gks_state_list_t));
 
