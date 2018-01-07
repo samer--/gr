@@ -1282,6 +1282,7 @@ void apply_world_xform (double *x, double *y, double *z)
   *y = yw;
 }
 
+/*
 static
 void foreach_openws(void (*routine) (int, void *), void *arg)
 {
@@ -1291,15 +1292,18 @@ void foreach_openws(void (*routine) (int, void *), void *arg)
   if (state >= GKS_K_WSOP)
     {
       gks_inq_open_ws(n, &errind, &ol, &wkid);
+      printf("gr> foreach_openws (%d)...\n", ol);
       for (count = ol; count >= 1; count--)
         {
           n = count;
           gks_inq_open_ws(n, &errind, &ol, &wkid);
 
+          printf("       calling open ws %d.\n", wkid);
           routine(wkid, arg);
         }
     }
 }
+*/
 
 static
 void foreach_activews(void (*routine) (int, void *), void *arg)
@@ -1634,11 +1638,11 @@ void update(int workstation_id, int *regenflag)
 
 void gr_updatews(void)
 {
-  int regenflag = double_buf ? GKS_K_PERFORM_FLAG : GKS_K_POSTPONE_FLAG;
+  int regenflag = GKS_K_PERFORM_FLAG; // double_buf ? GKS_K_PERFORM_FLAG : GKS_K_POSTPONE_FLAG;
 
   check_autoinit;
 
-  foreach_openws((void (*)(int, void *)) update, (void *) &regenflag);
+  foreach_activews((void (*)(int, void *)) update, (void *) &regenflag);
 
   if (flag_graphics)
     if (display)
@@ -2339,7 +2343,6 @@ void gr_settextcolorind(int color)
 void gr_setcharheight(double height)
 {
   check_autoinit;
-
   gks_set_text_height(height);
   if (ctx)
     ctx->chh = height;
@@ -2698,6 +2701,7 @@ void gr_closeseg(void)
 void gr_emergencyclosegks(void)
 {
   gks_emergency_close();
+  printf("gr> gr_emergencyclosegks setting autoinit = 1\n");
   autoinit = 1;
 }
 
