@@ -165,13 +165,11 @@ void gks_ddlk(
 
       if (i_arr[0] == ws->wkid || !have_id)
 	{
-	  if (id != 0)
+          // TODO could check to see if  ws->wkid is in active_ws
+	  if (id != 0 && id != ws->wkid)
 	    {
-	      if (id != ws->wkid)
-		{
-		  list = list->next;
-		  continue;
-	      }
+               list = list->next;
+               continue;
 	    }
 	  ptr = &ws->ptr;
 
