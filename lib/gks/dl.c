@@ -58,7 +58,6 @@ void gks_dl_write_item(gks_display_list_t *d,
   switch (fctid)
     {
     case   2:                        /* open workstation */
-
       d->state = GKS_K_WS_INACTIVE;
       d->buffer = (char *) gks_malloc(SEGM_SIZE + 1);
       d->size = SEGM_SIZE;
@@ -73,23 +72,19 @@ void gks_dl_write_item(gks_display_list_t *d,
       break;
 
     case   3:                        /* close workstation */
-
       free(d->buffer);
       d->buffer = NULL;
       break;
 
     case   4:                        /* activate workstation */
-
       d->state = GKS_K_WS_ACTIVE;
       break;
 
     case   5:                        /* deactivate workstation */
-
       d->state = GKS_K_WS_INACTIVE;
       break;
 
     case   6:                        /* clear workstation */
-
       if (d->empty)
         {
           t = gks_malloc(d->size);
@@ -131,7 +126,6 @@ void gks_dl_write_item(gks_display_list_t *d,
       break;
 
     case  14:                        /* text */
-
       if (d->state == GKS_K_WS_ACTIVE)
         {
           len = 3 * sizeof(int) + 2 * sizeof(double) + 132;
@@ -155,7 +149,6 @@ void gks_dl_write_item(gks_display_list_t *d,
 
     case  16:                        /* cell array */
     case 201:                        /* draw image */
-
       if (d->state == GKS_K_WS_ACTIVE)
         {
           len = (5 + dimx * dy) * sizeof(int) + 4 * sizeof(double);
@@ -188,7 +181,7 @@ void gks_dl_write_item(gks_display_list_t *d,
     case  38:                        /* set fillarea color index */
     case  52:                        /* select normalization transformation */
     case  53:                        /* set clipping indicator */
-
+      if (d->state != GKS_K_WS_ACTIVE) break;
       len = 3 * sizeof(int);
       if (d->nbytes + len > d->size)
         reallocate(d, len);
@@ -200,7 +193,7 @@ void gks_dl_write_item(gks_display_list_t *d,
 
     case  27:                        /* set text font and precision */
     case  34:                        /* set text alignment */
-
+      if (d->state != GKS_K_WS_ACTIVE) break;
       len = 4 * sizeof(int);
       if (d->nbytes + len > d->size)
         reallocate(d, len);
@@ -217,6 +210,7 @@ void gks_dl_write_item(gks_display_list_t *d,
     case  31:                        /* set character height */
     case 200:                        /* set text slant */
     case 203:                        /* set transparency */
+      if (d->state != GKS_K_WS_ACTIVE) break;
 
       len = 2 * sizeof(int) + sizeof(double);
       if (d->nbytes + len > d->size)
@@ -228,6 +222,7 @@ void gks_dl_write_item(gks_display_list_t *d,
       break;
 
     case  32:                        /* set character up vector */
+      if (d->state != GKS_K_WS_ACTIVE) break;
 
       len = 2 * sizeof(int) + 2 * sizeof(double);
       if (d->nbytes + len > d->size)
@@ -240,6 +235,7 @@ void gks_dl_write_item(gks_display_list_t *d,
       break;
 
     case  41:                        /* set aspect source flags */
+      if (d->state != GKS_K_WS_ACTIVE) break;
 
       len = 15 * sizeof(int);
       if (d->nbytes + len > d->size)
@@ -266,6 +262,7 @@ void gks_dl_write_item(gks_display_list_t *d,
     case  50:                        /* set viewport */
     case  54:                        /* set workstation window */
     case  55:                        /* set workstation viewport */
+      if (d->state != GKS_K_WS_ACTIVE) break;
 
       len = 3 * sizeof(int) + 4 * sizeof(double);
       if (d->nbytes + len > d->size)
@@ -279,6 +276,7 @@ void gks_dl_write_item(gks_display_list_t *d,
       break;
 
     case 202:                        /* set shadow */
+      if (d->state != GKS_K_WS_ACTIVE) break;
 
       len = 2 * sizeof(int) + 3 * sizeof(double);
       if (d->nbytes + len >= d->size)
@@ -290,6 +288,7 @@ void gks_dl_write_item(gks_display_list_t *d,
       break;
 
     case 204:                        /* set coord xform */
+      if (d->state != GKS_K_WS_ACTIVE) break;
 
       len = 2 * sizeof(int) + 6 * sizeof(double);
       if (d->nbytes + len >= d->size)
