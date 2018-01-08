@@ -2199,34 +2199,25 @@ void fill_routine(int n, double *px, double *py, int tnr)
 static
 void fill_area(int n, double *px, double *py)
 {
-  int fl_inter, fl_style, fl_color;
-  int ln_type;
-
-  fl_inter = gksl->asf[10] ? gksl->ints : predef_ints[gksl->findex - 1];
-  fl_style = gksl->asf[11] ? gksl->styli : predef_styli[gksl->findex - 1];
-  fl_color = gksl->asf[12] ? gksl->facoli : 1;
+  int fl_inter = gksl->asf[10] ? gksl->ints : predef_ints[gksl->findex - 1];
+  int fl_color = gksl->asf[12] ? gksl->facoli : 1;
 
   set_color(fl_color);
   set_line_attr(GKS_K_LINETYPE_SOLID, 1.0);
-
-  if (fl_inter == GKS_K_INTSTYLE_SOLID)
-    {
-      fill_routine(n, px, py, gksl->cntnr);
-    }
-  else if (fl_inter == GKS_K_INTSTYLE_PATTERN ||
-    fl_inter == GKS_K_INTSTYLE_HATCH)
-    {
-      if (fl_inter == GKS_K_INTSTYLE_HATCH)
-        set_pattern(p->ccolor, fl_style + HATCH_STYLE);
-      else
-        set_pattern(p->ccolor, fl_style);
-      fill_routine(n, px, py, gksl->cntnr);
-      set_pattern(p->ccolor, 0);
-    }
+  if (fl_inter == GKS_K_INTSTYLE_HOLLOW)
+    line_routine(n, px, py, DrawBorder, gksl->cntnr);
   else
     {
-      ln_type = DrawBorder;
-      line_routine(n, px, py, ln_type, gksl->cntnr);
+      if (fl_inter == GKS_K_INTSTYLE_SOLID)
+        fill_routine(n, px, py, gksl->cntnr);
+      else if (fl_inter == GKS_K_INTSTYLE_PATTERN ||
+               fl_inter == GKS_K_INTSTYLE_HATCH)
+        {
+          int fl_style = gksl->asf[11] ? gksl->styli : predef_styli[gksl->findex - 1];
+          set_pattern(p->ccolor, fl_style + (fl_inter == GKS_K_INTSTYLE_HATCH ? HATCH_STYLE : 0));
+          fill_routine(n, px, py, gksl->cntnr);
+          set_pattern(p->ccolor, 0);
+        }
     }
 }
 
