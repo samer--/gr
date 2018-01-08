@@ -578,18 +578,7 @@ void seg_xform_rel(double *x, double *y)
           break;
 
         case  55:
-          if (!has_been_resized)
-            {
-              p->viewport[0] = f_arr_1[0];
-              p->viewport[1] = f_arr_1[1];
-              p->viewport[2] = f_arr_2[0];
-              p->viewport[3] = f_arr_2[1];
-            }
-
-          [self resize_window];
-
-          set_xform();
-          init_norm_xform();
+			 [self resize_window: f_arr_1[0] : f_arr_1[1] : f_arr_2[0] : f_arr_2[1]];
           break;
 
         case 200:
@@ -1039,46 +1028,56 @@ void seg_xform_rel(double *x, double *y)
   CGContextSetStrokeColorWithColor(context, p->rgb[color]);
 }
 
-- (void) resize_window
+- (void) resize_window : (double) left : (double) right : (double) bottom : (double) top
 {
-  double max_width, max_height, width, height;
   NSRect rect = [[self window] frame];
-  CGSize screen_size;
+  CGSize screen_size = CGDisplayScreenSize(CGMainDisplayID());
+  double max_width = 0.001 * screen_size.width;
+  double max_height = 0.001 * screen_size.height; // correct for non-square pixels
+  double width  = (right - left) / max_width  * p->swidth;
+  double height = (top - bottom) / max_height * p->sheight;
+  NSLog(@"desired size = %lf x %lf", width, height);
 
-  screen_size = CGDisplayScreenSize(CGMainDisplayID());
-  max_width = 0.001 * screen_size.width;
-  max_height = 0.001 * screen_size.height; // correct for non-square pixels
-
-  if (!has_been_resized)
+  if (has_been_resized)
     {
-      gks_fit_ws_viewport(p->viewport, max_width, max_height, 0.0075);
-      width  = (p->viewport[1] - p->viewport[0]) / max_width  * p->swidth;
-      height = (p->viewport[3] - p->viewport[2]) / max_height * p->sheight;
+      double curr_width  = [self bounds].size.width;
+      double curr_height = [self bounds].size.height;
+		NSLog(@"current size = %lf x %lf", curr_width, curr_height);
+      p->viewport[0] = p->viewport[2] = 0;
+      p->viewport[1] = curr_width  * max_width  / p->swidth;
+      p->viewport[3] = curr_height * max_height / p->sheight;
+		zoom = min(curr_width/width, curr_height/height);
+		NSLog(@"Zoom factor = %lf", zoom);
+		set_xform();
+		init_norm_xform();
     }
   else
     {
-      width  = [self bounds].size.width;
-      height = [self bounds].size.height;
-      p->viewport[0] = p->viewport[2] = 0;
-      p->viewport[1] = width  * max_width  / p->swidth;
-      p->viewport[3] = height * max_height / p->sheight;
+		if (fabs(p->width - width) > 1e-9 || fabs(p->height - height) > 1e-9)
+		  {
+			 NSLog(@"mismatch: %lg, %lg", width - p->width, height - p->height);
+			 NSSize contentSize = [[self window] contentRectForFrameRect: rect].size;
+
+			 p->viewport[0] = left;
+			 p->viewport[1] = right;
+			 p->viewport[2] = bottom;
+			 p->viewport[3] = top;
+			 gks_fit_ws_viewport(p->viewport, max_width, max_height, 0.0075);
+
+			 rect.size.width  += width - contentSize.width;
+			 rect.size.height += height - contentSize.height;
+			 rect.origin.y    += contentSize.height - height;
+
+			 p->width  = width;
+			 p->height = height;
+
+			 [self setNeedsDisplay: YES];
+			 [[self window] setFrame: rect display: YES];
+			 set_xform();
+			 init_norm_xform();
+		  }
     }
 
-  if (fabs(p->width - width) > 1e-6 || fabs(p->height - height) > 1e-6)
-    {
-      NSLog(@"mismatch: %lg, %lg", width - p->width, height - p->height);
-      NSSize contentSize = [[self window] contentRectForFrameRect: rect].size;
-
-      rect.size.width  += width - contentSize.width;
-      rect.size.height += height - contentSize.height;
-      rect.origin.y    += contentSize.height - height;
-
-      p->width  = width;
-      p->height = height;
-
-      [self setNeedsDisplay: YES];
-      [[self window] setFrame: rect display: YES];
-    }
 }
 
 - (void) set_clip_rect: (int) tnr
@@ -1184,7 +1183,7 @@ void line_routine(int n, double *px, double *py, int linetype, int tnr)
       CGContextSetLineDash(context, 0.0, lengths, dashlist[0]);
     }
 
-  CGContextSetLineWidth(context, ln_width);
+  CGContextSetLineWidth(context, zoom * ln_width);
   CGContextAddLines(context, points, n);
   if (closed) CGContextClosePath(context);
   CGContextDrawPath(context, kCGPathStroke);
@@ -1317,7 +1316,7 @@ void line_routine(int n, double *px, double *py, int linetype, int tnr)
 
   begin_context(context);
 
-  CGContextSetLineWidth(context, 1);
+  CGContextSetLineWidth(context, zoom * 1);
   [self set_stroke_color: mk_color : context];
   [self set_fill_color: mk_color : context];
 
