@@ -1148,7 +1148,9 @@ void line_routine(int n, double *px, double *py, int linetype, int tnr)
   int dashlist[10];
   CGFloat lengths[10] = {0., 0., 0., 0., 0., 0., 0., 0., 0., 0. };
   double x, y;
+  int closed = (px[0] == px[n-1] && py[0] == py[n-1]);
 
+  if (closed) n--;
   if (n > num_points)
     {
       while (n > num_points)
@@ -1184,6 +1186,7 @@ void line_routine(int n, double *px, double *py, int linetype, int tnr)
 
   CGContextSetLineWidth(context, ln_width);
   CGContextAddLines(context, points, n);
+  if (closed) CGContextClosePath(context);
   CGContextDrawPath(context, kCGPathStroke);
 
   end_context(context);
