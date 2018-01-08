@@ -1441,7 +1441,9 @@ void fill_routine(int n, double *px, double *py, int tnr)
 
 - (void) fillarea: (int) n : (double *)px : (double *)py
 {
-  int fl_inter, i = 0;
+  int fl_inter = gkss->asf[10] ? gkss->ints : predef_ints[gkss->findex - 1];
+  int fl_color = gkss->asf[12] ? gkss->facoli : 1;
+  int i = 0;
   double x, y;
 
   if (n > num_points)
@@ -1458,29 +1460,12 @@ void fill_routine(int n, double *px, double *py, int tnr)
       NDC_to_DC(x, y, points[i].x, points[i].y);
     }
 
-  fl_inter = gkss->asf[10] ? gkss->ints : predef_ints[gkss->findex - 1];
-
+  [self set_stroke_color: fl_color : context];
   if (fl_inter == GKS_K_INTSTYLE_HOLLOW)
-    { // use current line paremters for hollow polygons
-      int ln_type  = gkss->asf[0] ? gkss->ltype : gkss->lindex;
-      int ln_color = gkss->asf[2] ? gkss->plcoli : 1;
-      double ln_width = gkss->asf[1] ? gkss->lwidth : 1;
-
-      [self set_stroke_color: ln_color : context];
+    { 
       begin_context(context);
-      if (ln_type != 1)
-        {
-          CGFloat lengths[10] = {0., 0., 0., 0., 0., 0., 0., 0., 0., 0. };
-          int dashlist[10];
-
-          gks_get_dash_list(ln_type, ln_width, dashlist);
-          for (i = 1 ; i<= dashlist[0]; ++i)
-            lengths[i-1] = (float) dashlist[i];
-
-          CGContextSetLineDash(context, 0.0, lengths, dashlist[0]);
-        }
       CGContextBeginPath(context);
-      CGContextSetLineWidth(context, ln_width);
+      CGContextSetLineWidth(context, 1);
       CGContextAddLines(context, points, n);
       CGContextClosePath(context);
       CGContextDrawPath(context, kCGPathStroke);
@@ -1488,10 +1473,6 @@ void fill_routine(int n, double *px, double *py, int tnr)
     }
   else
     {
-      int fl_style = gkss->asf[11] ? gkss->styli : predef_styli[gkss->findex - 1];
-      int fl_color = gkss->asf[12] ? gkss->facoli : 1;
-      [self set_stroke_color: fl_color : context];
-
       if (fl_inter == GKS_K_INTSTYLE_SOLID)
         {
           begin_context(context);
@@ -1506,6 +1487,7 @@ void fill_routine(int n, double *px, double *py, int tnr)
       else if (fl_inter == GKS_K_INTSTYLE_PATTERN ||
                fl_inter == GKS_K_INTSTYLE_HATCH)
         {
+			 int fl_style = gkss->asf[11] ? gkss->styli : predef_styli[gkss->findex - 1];
           [self set_fill_color: fl_color : context];
           if (fl_inter == GKS_K_INTSTYLE_HATCH)
             fl_style += HATCH_STYLE;
