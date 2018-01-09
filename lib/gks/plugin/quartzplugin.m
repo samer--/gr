@@ -311,9 +311,14 @@ void gks_quartzplugin(
     case CELLARRAY:
     case GDP:
     case DRAW_IMAGE:
-      [mutex lock];
-      wss->inactivity_counter = 0;
-      [mutex unlock];
+      // FIXME this is bad because it will trigger a redraw even if this
+      // is not an active workspace. The drawing command will be filtered out
+      // by gks_dl_write_item...
+
+      /* [mutex lock]; */
+      /* printf("quartz> starting inactivity counter for win %d\n", wss->win); */
+      /* wss->inactivity_counter = 0; */
+      /* [mutex unlock]; */
       break;
     }
 
