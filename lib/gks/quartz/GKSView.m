@@ -267,14 +267,23 @@ void set_xform(void)
   p->d = y - p->window[2] * p->c;
 }
 
-static
-void seg_xform(double *x, double *y)
+static void seg_xform(double *x, double *y) { }
+static void seg_xform_rel(double *x, double *y) { }
+
+static void screen_size_metres(double *width, double *height)
 {
+  CGSize screen_size = CGDisplayScreenSize(CGMainDisplayID());
+  *width = 0.001 * screen_size.width;
+  *height = 0.001 * screen_size.height;
 }
 
-static
-void seg_xform_rel(double *x, double *y)
+static void set_viewport_for_current_size(double *viewport)
 {
+  double mwidth, mheight;
+  screen_size_metres(&mwidth, &mheight);
+  viewport[0] = viewport[2] = 0.0;
+  viewport[1] = p->width  * mwidth / p->swidth;
+  viewport[3] = p->height * mheight / p->sheight;
 }
 
 @implementation GKSView
@@ -392,32 +401,25 @@ void seg_xform_rel(double *x, double *y)
       switch (*f)
         {
         case 2:
-          gkss = &gkss_;
-          p = &p_;
+          /* { // TODO if we could get old of wkid here, we could set the title */
+          /*   NSString *title = [NSString stringWithFormat:@"GKSTerm (ws %d)", wkid]; */
+          /*   [[self window] setTitle: title]; */
+          /* } */
+          memcpy(&saved_gkss, gkss, sizeof(gks_state_list_t));
+          memcpy(gkss, sl, sizeof(gks_state_list_t));
 
-			 /* { // TODO if we could get old of wkid here, we could set the title */
-			 /*   NSString *title = [NSString stringWithFormat:@"GKSTerm (ws %d)", wkid]; */
-			 /*   [[self window] setTitle: title]; */
-			 /* } */
-          memmove(&saved_gkss, gkss, sizeof(gks_state_list_t));
-          memmove(gkss, sl, sizeof(gks_state_list_t));
-
-          CGSize screen_size = CGDisplayScreenSize(CGMainDisplayID());
-          double mwidth = 0.001 * screen_size.width;
-          double mheight = 0.001 * screen_size.height;
-
-          p->width  = [self bounds].size.width;
-          p->height = [self bounds].size.height;
           p->swidth  = NSMaxX([[[NSScreen screens] objectAtIndex:0] frame]);
           p->sheight = NSMaxY([[[NSScreen screens] objectAtIndex:0] frame]);
+          p->width  = [self bounds].size.width;
+          p->height = [self bounds].size.height;
 
           p->window[0] = p->window[2] = 0.0;
-          p->window[1] = p->window[3] = 1.0;
+          p->window[1] = p->window[3] = 1.0; // TODO: consider not resetting this here.
 
-          p->viewport[0] = p->viewport[2] = 0.0;
-          p->viewport[1] = p->width  * mwidth / p->swidth;
-          p->viewport[3] = p->height * mheight / p->sheight;
-
+          set_viewport_for_current_size(p->viewport);
+          zoom = min(p->width/req_width, p->height/req_height);
+          NSLog(@"OPEN_WS: zoom = %lf", zoom);
+          NSLog(@"current  size = %lf x %lf", p->width, p->height);
           set_xform();
           init_norm_xform();
 
