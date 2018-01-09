@@ -186,6 +186,7 @@ static
 void set_norm_xform(int tnr, double *wn, double *vp)
 {
   CGRect *rect = &p->rect[tnr];
+  double x, y;
 
   a[tnr] = (vp[1] - vp[0]) / (wn[1] - wn[0]);
   b[tnr] = vp[0] - wn[0] * a[tnr];
@@ -193,10 +194,9 @@ void set_norm_xform(int tnr, double *wn, double *vp)
   d[tnr] = vp[2] - wn[2] * c[tnr];
 
   NDC_to_DC(vp[0], vp[2], rect->origin.x, rect->origin.y);
-  NDC_to_DC(vp[1] - vp[0], vp[3] - vp[2], rect->size.width, rect->size.height);
-
-  rect->size.width +=1;
-  rect->size.height +=1;
+  NDC_to_DC(vp[1], vp[3], x, y);
+  rect->size.width = x - rect->origin.x;
+  rect->size.height = y - rect->origin.y;
 }
 
 static
