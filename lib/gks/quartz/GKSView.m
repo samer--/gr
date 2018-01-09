@@ -245,9 +245,8 @@ void update_color(int color)
 static
 void set_xform(void)
 {
-  double aspect_ratio, w, h, x, y;
-
-  aspect_ratio = (p->window[1] - p->window[0]) / (p->window[3] - p->window[2]);
+  double aspect_ratio = (p->window[1] - p->window[0]) / (p->window[3] - p->window[2]);
+  double w, h, x, y;
 
   if (p->width > p->height * aspect_ratio)
     {
@@ -649,10 +648,10 @@ void seg_xform_rel(double *x, double *y)
 
   if (buffer)
   {
+    NSSize win_size = self.bounds.size;
     c = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
 
-    layer = CGLayerCreateWithContext(c,
-      CGSizeMake(self.bounds.size.width, self.bounds.size.height), NULL);
+    layer = CGLayerCreateWithContext(c, win_size, NULL);
     context = CGLayerGetContext(layer);
 
     [contextStack addObject: (id)context];
@@ -660,13 +659,14 @@ void seg_xform_rel(double *x, double *y)
 
     if (angle != 0)
       {
-        centerx = self.bounds.size.width / 2;
-        centery = self.bounds.size.height / 2;
+        centerx = win_size.width / 2;
+        centery = win_size.height / 2;
         CGContextTranslateCTM (context, centerx, centery);
         CGContextRotateCTM (context, (angle) * M_PI/180);
         CGContextTranslateCTM (context, -centerx, -centery);
       }
 
+    NSLog(@"win %d: interp", win_id); 
     [self interp: buffer];
     CGContextDrawLayerAtPoint(c, CGPointMake(0, 0), layer);
 
@@ -691,21 +691,14 @@ void seg_xform_rel(double *x, double *y)
       buffer = (char *) gks_realloc(buffer, size);
     }
 
-  memmove(buffer, (char *) [display_list bytes], len);
+  memcpy(buffer, (char *) [display_list bytes], len);
   memset(buffer + len, 0, sizeof(int));
 
   [self setNeedsDisplay: YES];
 }
 
-- (void) setWinID: (int)winid
-{
-  win_id = winid;
-}
-
-- (int)getWinID
-{
-  return win_id;
-}
+- (void) setWinID: (int)winid { win_id = winid; }
+- (int)  getWinID { return win_id; }
 
 - (IBAction) keep_on_display: (id)sender
 {
