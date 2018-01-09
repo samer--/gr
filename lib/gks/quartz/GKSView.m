@@ -1459,9 +1459,9 @@ void fill_routine(int n, double *px, double *py, int tnr)
       NDC_to_DC(x, y, points[i].x, points[i].y);
     }
 
-  [self set_stroke_color: fl_color : context];
   if (fl_inter == GKS_K_INTSTYLE_HOLLOW)
-    { 
+    {
+      [self set_stroke_color: fl_color : context];
       begin_context(context);
       CGContextBeginPath(context);
       CGContextSetLineWidth(context, 1);
@@ -1477,16 +1477,16 @@ void fill_routine(int n, double *px, double *py, int tnr)
           begin_context(context);
           [self set_fill_color: fl_color : context];
           CGContextBeginPath(context);
-          CGContextSetLineWidth(context, 1);
           CGContextAddLines(context, points, n);
           CGContextClosePath(context);
-          CGContextDrawPath(context, kCGPathFillStroke);
+          CGContextDrawPath(context, kCGPathFill);
           end_context(context);
         }
       else if (fl_inter == GKS_K_INTSTYLE_PATTERN ||
                fl_inter == GKS_K_INTSTYLE_HATCH)
         {
-			 int fl_style = gkss->asf[11] ? gkss->styli : predef_styli[gkss->findex - 1];
+          int fl_style = gkss->asf[11] ? gkss->styli : predef_styli[gkss->findex - 1];
+          [self set_stroke_color: fl_color : context];
           [self set_fill_color: fl_color : context];
           if (fl_inter == GKS_K_INTSTYLE_HATCH)
             fl_style += HATCH_STYLE;

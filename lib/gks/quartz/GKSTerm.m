@@ -44,13 +44,12 @@
                       backing: NSBackingStoreBuffered defer: NO];
       [window[win] setBackgroundColor: [NSColor colorWithCalibratedWhite: 1 alpha: 1]];
       view[win] = [[GKSView alloc] initWithFrame: NSMakeRect(0, 0, 500, 500)];
+      [view[win] setWinID: win];
       [window[win] setContentView:view[win]];
       [window[win] makeFirstResponder: view[win]];
       [window[win] makeKeyAndOrderFront: nil];
       [window[win] setTitle: @"GKSTerm"];
       [window[win] display];
-
-      [view[win] setWinID: win];
 
       cascadingPoint = [window[win] cascadeTopLeftFromPoint: cascadingPoint];
 
