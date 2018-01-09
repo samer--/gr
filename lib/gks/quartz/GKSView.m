@@ -211,13 +211,11 @@ void init_norm_xform(void)
 static
 void set_color_rep(int color, double red, double green, double blue)
 {
-  if (color >= 0 && color < MAX_COLOR) {
-    if (p->rgb[color] != 0)
-      {
-        CGColorRelease(p->rgb[color]);
-      }
-    p->rgb[color] = CGColorCreateGenericRGB(red, green, blue, gkss->alpha);
-  }
+  if (p->rgb[color] != 0)
+    {
+      CGColorRelease(p->rgb[color]);
+    }
+  p->rgb[color] = CGColorCreateGenericRGB(red, green, blue, gkss->alpha);
 }
 
 static
@@ -533,7 +531,8 @@ void seg_xform_rel(double *x, double *y)
           break;
 
         case 48:
-          set_color_rep(i_arr[0], f_arr_1[0], f_arr_1[1], f_arr_1[2]);
+          if (i_arr[0]>=0 && i_arr[0] < MAX_COLOR)
+            set_color_rep(i_arr[0], f_arr_1[0], f_arr_1[1], f_arr_1[2]);
           break;
 
         case 49:
