@@ -624,7 +624,10 @@ void seg_xform_rel(double *x, double *y)
       buffer = NULL;
       size = 0;
       angle = 0;
+      zoom = 1.0;
       has_been_resized = 0;
+      req_width = frame.size.width;
+      req_height = frame.size.height;
       fontfile = gks_open_font();
     }
   return self;

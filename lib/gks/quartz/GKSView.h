@@ -17,6 +17,7 @@ typedef struct {
     int win_id;
     double angle;
     double zoom;
+    double req_width, req_height;
     int has_been_resized;
     IBOutlet NSBox *extendSavePanelView;
     IBOutlet NSPopUpButton *saveFormatPopUp;
