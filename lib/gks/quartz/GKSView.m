@@ -540,7 +540,7 @@ void seg_xform_rel(double *x, double *y)
           gkss->window[*i_arr][1] = f_arr_1[1];
           gkss->window[*i_arr][2] = f_arr_2[0];
           gkss->window[*i_arr][3] = f_arr_2[1];
-          set_xform();
+          /* set_xform(); */
           set_norm_xform(*i_arr, gkss->window[*i_arr], gkss->viewport[*i_arr]);
           break;
 
