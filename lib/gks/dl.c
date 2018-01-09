@@ -27,22 +27,19 @@ int purge(gks_display_list_t *d, char *t)
    Return purged display list (t) and length (in bytes)
  */
 {
-  char *s;
-  int sp = 0, tp = 0, *len, *fctid;
+  char *s = d->buffer; // current position in buffer
+  int tp = 0, len = *(int *)s, fctid;
 
-  s = d->buffer;
-  len = (int *) (s + sp);
-  while (*len)
+  for (len = *(int *)s; len; s += len, len = *(int *)s)
     {
-      fctid = (int *) (s + sp + sizeof(int));
+      fctid = *(int *)(s + sizeof(int));
       /* 48: setcolorrep, 54: setwswindow, 55: setwsviewport */
-      if (*fctid == 48 || *fctid == 54 || *fctid == 55)
+      if (fctid == 48 || fctid == 54 || fctid == 55)
         {
-          memmove(t + tp, s + sp, *len);
-          tp += *len;
+          printf("dl> clearing but keeping function: %d\n", fctid);
+          memmove(t + tp, s, len);
+          tp += len;
         }
-      sp += *len;
-      len = (int *) (s + sp);
     }
   return tp;
 }
@@ -85,8 +82,13 @@ void gks_dl_write_item(gks_display_list_t *d,
       break;
 
     case   6:                        /* clear workstation */
+      // FIXME this purge stuff is very problematic.
+      // Questions: where should various states be kept? Should some functions have immediate
+      // effect and not be stored in the buffer/display list?
+      // Why should it make a difference whether or not d->empty is true?
       if (d->empty)
         {
+          printf("dl> purging...\n");
           t = gks_malloc(d->size);
           tp = purge(d, t);
         }
@@ -101,6 +103,7 @@ void gks_dl_write_item(gks_display_list_t *d,
 
       if (d->empty)
         {
+          printf("dl> copying result of purge...\n");
           COPY(t, tp);
           free(t);
         }
