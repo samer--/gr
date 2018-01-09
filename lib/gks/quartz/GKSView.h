@@ -29,7 +29,7 @@ typedef struct {
 - (void) setWinID: (int) winid;
 - (int) getWinID;
 
-- (void) resize_window;
+- (void) resize_window: (double) vp_w : (double) vp_h;
 - (void) set_clip_rect: (int) tnr;
 
 - (void) gks_set_shadow;

@@ -578,7 +578,7 @@ static void set_viewport_for_current_size(double *viewport)
           break;
 
         case  55:
-			 [self resize_window: f_arr_1[0] : f_arr_1[1] : f_arr_2[0] : f_arr_2[1]];
+          [self resize_window: f_arr_1[1] - f_arr_1[0] : f_arr_2[1] - f_arr_2[0]];
           break;
 
         case 200:
@@ -1024,56 +1024,56 @@ static void set_viewport_for_current_size(double *viewport)
   CGContextSetStrokeColorWithColor(context, p->rgb[color]);
 }
 
-- (void) resize_window : (double) left : (double) right : (double) bottom : (double) top
+- (void) resize_window : (double) vp_width : (double) vp_height
 {
-  NSRect rect = [[self window] frame];
-  CGSize screen_size = CGDisplayScreenSize(CGMainDisplayID());
-  double max_width = 0.001 * screen_size.width;
-  double max_height = 0.001 * screen_size.height; // correct for non-square pixels
-  double width  = (right - left) / max_width  * p->swidth;
-  double height = (top - bottom) / max_height * p->sheight;
-  NSLog(@"desired size = %lf x %lf", width, height);
+  double max_width, max_height;
+
+  screen_size_metres(&max_width, &max_height);
+  req_width  = vp_width / max_width  * p->swidth;
+  req_height = vp_height / max_height * p->sheight;
+  NSLog(@"desired size = %lf x %lf", req_width, req_height);
 
   if (has_been_resized)
     {
-      double curr_width  = [self bounds].size.width;
-      double curr_height = [self bounds].size.height;
-		NSLog(@"current size = %lf x %lf", curr_width, curr_height);
-      p->viewport[0] = p->viewport[2] = 0;
-      p->viewport[1] = curr_width  * max_width  / p->swidth;
-      p->viewport[3] = curr_height * max_height / p->sheight;
-		zoom = min(curr_width/width, curr_height/height);
-		NSLog(@"Zoom factor = %lf", zoom);
-		set_xform();
-		init_norm_xform();
+      NSSize win_size = [self bounds].size;
+      zoom = min(win_size.width/req_width, win_size.height/req_height);
+      NSLog(@"fixed size; zoom = %lf", zoom);
     }
   else
     {
-		if (fabs(p->width - width) > 1e-9 || fabs(p->height - height) > 1e-9)
-		  {
-			 NSLog(@"mismatch: %lg, %lg", width - p->width, height - p->height);
-			 NSSize contentSize = [[self window] contentRectForFrameRect: rect].size;
+      p->viewport[0] = p->viewport[2] = 0;
+      p->viewport[1] = vp_width;
+      p->viewport[3] = vp_height;
+      gks_fit_ws_viewport(p->viewport, max_width, max_height, 0.0075);
 
-			 p->viewport[0] = left;
-			 p->viewport[1] = right;
-			 p->viewport[2] = bottom;
-			 p->viewport[3] = top;
-			 gks_fit_ws_viewport(p->viewport, max_width, max_height, 0.0075);
+      double width  = (p->viewport[1] - p->viewport[0]) / max_width  * p->swidth;
+      double height = (p->viewport[3] - p->viewport[2]) / max_height * p->sheight;
+      zoom = min(width/req_width, width/req_height);
+      NSLog(@"variable size; zoom = %lf", zoom);
 
-			 rect.size.width  += width - contentSize.width;
-			 rect.size.height += height - contentSize.height;
-			 rect.origin.y    += contentSize.height - height;
+      NSLog(@"target size = %lf x %lf", width, height);
+      NSLog(@"current  size = %lf x %lf", p->width, p->height);
+      if (fabs(p->width - width) > 1e-9 || fabs(p->height - height) > 1e-9)
+        {
+          p->width = width;
+          p->height = height;
 
-			 p->width  = width;
-			 p->height = height;
+          NSLog(@"setting transforms");
+          set_xform();
+          init_norm_xform();
 
-			 [self setNeedsDisplay: YES];
-			 [[self window] setFrame: rect display: YES];
-			 set_xform();
-			 init_norm_xform();
-		  }
+          NSRect rect = [[self window] frame];
+          NSSize contentSize = [[self window] contentRectForFrameRect: rect].size;
+
+          rect.size.width  += width - contentSize.width;
+          rect.size.height += height - contentSize.height;
+          rect.origin.y    += contentSize.height - height;
+
+          NSLog(@"Calling setFrame, size = %lf x %lf", width, height);
+          [[self window] setFrame: rect display: YES];
+          [self setNeedsDisplay: YES];
+        }
     }
-
 }
 
 - (void) set_clip_rect: (int) tnr
