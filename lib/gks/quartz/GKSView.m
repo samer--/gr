@@ -46,7 +46,7 @@
   y = sin(p->angle) * (xrel) + (cos(p->angle)) * (yrel)
 
 static
-gks_state_list_t gkss_, *gkss;
+gks_state_list_t gkss_, *gkss = &gkss_;
 
 static
 double a[MAX_TNR], b[MAX_TNR], c[MAX_TNR], d[MAX_TNR];
@@ -150,7 +150,7 @@ int dingbats[256] = {
   10170, 10171, 10172, 10173, 10174,    32 };
 
 static
-ws_state_list p_, *p;
+ws_state_list p_, *p = &p_;
 
 static
 int fontfile = 0;
@@ -612,8 +612,7 @@ void seg_xform_rel(double *x, double *y)
       RESOLVE(len, int, sizeof(int));
     }
 
-  if (gkss != NULL)
-    memmove(gkss, &saved_gkss, sizeof(gks_state_list_t));
+  memcpy(gkss, &saved_gkss, sizeof(gks_state_list_t));
 }
 
 - (id) initWithFrame: (NSRect) frame
