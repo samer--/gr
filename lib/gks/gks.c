@@ -378,7 +378,7 @@ void gks_open_gks(int errfil)
       for (i = 0; i < num_ws_types; i++)
 	{
 	  ws = (ws_descr_t *) gks_malloc(sizeof(ws_descr_t));
-	  memmove(ws, ws_types + i, sizeof(ws_descr_t));
+	  *ws = ws_types[i];
 	  av_ws_types = gks_list_add(av_ws_types, ws_types[i].wtype, ws);
 	}
 
