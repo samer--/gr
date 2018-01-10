@@ -1073,12 +1073,8 @@ void line_routine(int n, double *px, double *py, int linetype, int tnr)
 
 - (void) polyline: (int) n : (double *) px : (double *) py
 {
-  int ln_type, ln_color, i;
-  double ln_width;
-  int dashlist[10];
-  CGFloat lengths[10] = {0., 0., 0., 0., 0., 0., 0., 0., 0., 0. };
+  int i, closed = (px[0] == px[n-1] && py[0] == py[n-1]);
   double x, y;
-  int closed = (px[0] == px[n-1] && py[0] == py[n-1]);
 
   if (closed) n--;
   if (n > num_points)
@@ -1095,18 +1091,19 @@ void line_routine(int n, double *px, double *py, int linetype, int tnr)
       NDC_to_DC(x, y, points[i].x, points[i].y);
     }
 
-  ln_type  = gkss->asf[0] ? gkss->ltype : gkss->lindex;
-  ln_width = gkss->asf[1] ? gkss->lwidth : 1;
-  ln_color = gkss->asf[2] ? gkss->plcoli : 1;
+  int    ln_type  = gkss->asf[0] ? gkss->ltype : gkss->lindex;
+  double ln_width = gkss->asf[1] ? gkss->lwidth : 1;
+  int    ln_color = gkss->asf[2] ? gkss->plcoli : 1;
 
   [self set_stroke_color: ln_color : context];
 
   begin_context(context);
-
   CGContextBeginPath(context);
 
   if (ln_type != 1)
     {
+      CGFloat lengths[10] = {0., 0., 0., 0., 0., 0., 0., 0., 0., 0. };
+      int dashlist[10];
       gks_get_dash_list(ln_type, ln_width, dashlist);
       for (i = 1 ; i<= dashlist[0]; ++i)
         lengths[i-1] = (float) dashlist[i];
