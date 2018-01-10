@@ -9,7 +9,7 @@
 #define PATTERNS 120
 #define HATCH_STYLE 108
 #define NUM_POINTS 10000
-#define M_PER_POINT (0.0254/72)
+#define MM_PER_POINT (25.4/72)
 
 #define RESOLVE(arg, type, nbytes) arg = (type *)(s + sp); sp += nbytes
 
@@ -299,6 +299,7 @@ static void set_viewport_for_current_size(double *viewport)
     {
       RESOLVE(f, int, sizeof(int));
 
+      /* NSLog(@"win %d: interp %d", win_id, *f); */ 
       switch (*f)
         {
         case 2:
@@ -402,19 +403,19 @@ static void set_viewport_for_current_size(double *viewport)
           memcpy(gkss, sl, sizeof(gks_state_list_t));
 
           CGSize screen_size = CGDisplayScreenSize(CGMainDisplayID());
+          NSSize win_size = self.bounds.size;
+          [self set_zoom: win_size];
+
           p->mwidth = screen_size.width / 1000;
           p->mheight = screen_size.height / 1000;
           p->ppmm_x = NSMaxX([[[NSScreen screens] objectAtIndex:0] frame]) / screen_size.width;
           p->ppmm_y = NSMaxY([[[NSScreen screens] objectAtIndex:0] frame]) / screen_size.height;
-          p->width  = [self bounds].size.width;
-          p->height = [self bounds].size.height;
-
+          p->width  = win_size.width;
+          p->height = win_size.height;
           p->window[0] = p->window[2] = 0.0;
           p->window[1] = p->window[3] = 1.0; // TODO: consider not resetting this here.
 
           set_viewport_for_current_size(p->viewport);
-          zoom = min(p->width/req_width, p->height/req_height);
-          NSLog(@"OPEN_WS: size = %lf x %lf, zoom = %lf", p->width, p->height, zoom);
           set_xform();
           init_norm_xform();
 
@@ -556,13 +557,19 @@ static void set_viewport_for_current_size(double *viewport)
       buffer = NULL;
       size = 0;
       angle = 0;
-      zoom = 1.0;
       has_been_resized = 0;
       req_width = frame.size.width;
       req_height = frame.size.height;
       fontfile = gks_open_font();
     }
   return self;
+}
+
+- (void) set_zoom: (NSSize) sz
+{
+  double z = min(sz.width/req_width, sz.width/req_height);
+  NSLog(@"settings zoom = %lf", z);
+  line_width_factor = z * p->ppmm_y * MM_PER_POINT;
 }
 
 - (void) drawRect: (NSRect) rect
@@ -599,7 +606,7 @@ static void set_viewport_for_current_size(double *viewport)
         CGContextTranslateCTM (context, -centerx, -centery);
       }
 
-    NSLog(@"win %d: interp", win_id); 
+    NSLog(@"drawRect on win %d: interp", win_id); 
     [self interp: buffer];
     CGContextDrawLayerAtPoint(c, CGPointMake(0, 0), layer);
 
@@ -960,11 +967,7 @@ static void set_viewport_for_current_size(double *viewport)
   req_height = 1000 * vp_height * p->ppmm_y;
 
   if (has_been_resized)
-    {
-      NSSize win_size = [self bounds].size;
-      zoom = min(win_size.width/req_width, win_size.height/req_height);
-      NSLog(@"fixed size; zoom = %lf", zoom);
-    }
+    [self set_zoom: [self bounds].size];
   else
     {
       p->viewport[0] = p->viewport[2] = 0;
@@ -974,8 +977,7 @@ static void set_viewport_for_current_size(double *viewport)
 
       double width  = 1000 * (p->viewport[1] - p->viewport[0]) * p->ppmm_x;
       double height = 1000 * (p->viewport[3] - p->viewport[2]) * p->ppmm_y;
-      zoom = min(width/req_width, height/req_height);
-      NSLog(@"variable size; zoom = %lf", zoom);
+      [self set_zoom: NSMakeSize(width, height)];
 
       NSLog(@"current size: %lf x %lf, target size: %lf x %lf", p->width, p->height, width, height);
       if (fabs(p->width - width) > 1e-9 || fabs(p->height - height) > 1e-9)
@@ -1100,7 +1102,7 @@ void line_routine(int n, double *px, double *py, int linetype, int tnr)
       CGContextSetLineDash(context, 0.0, lengths, dashlist[0]);
     }
 
-  CGContextSetLineWidth(context, zoom * ln_width);
+  CGContextSetLineWidth(context, line_width_factor * ln_width);
   CGContextAddLines(context, points, n);
   if (closed) CGContextClosePath(context);
   CGContextDrawPath(context, kCGPathStroke);
@@ -1209,12 +1211,12 @@ void line_routine(int n, double *px, double *py, int linetype, int tnr)
   double mk_size  = gkss->asf[4] ? gkss->mszsc : 1;
   int    mk_color = gkss->asf[5] ? gkss->pmcoli : 1;
   double *clrt = gkss->viewport[gkss->cntnr];
-  double x, y, scale = zoom * M_PER_POINT * p->ppmm_y * mk_size/2;
+  double x, y, scale = line_width_factor * mk_size/2;
   int    i, mk_index = mk_type + marker_off;
 
   begin_context(context);
 
-  CGContextSetLineWidth(context, zoom * mk_size / 8);
+  CGContextSetLineWidth(context, scale/4); // !!!! arbitrary, aesthetic choice
   [self set_stroke_color: mk_color : context];
   [self set_fill_color: mk_color : context];
 
@@ -1222,8 +1224,8 @@ void line_routine(int n, double *px, double *py, int linetype, int tnr)
     {
       WC_to_NDC(px[i], py[i], gkss->cntnr, x, y);
       /* seg_xform(&x, &y); */
-      if (gkss->clip != GKS_K_CLIP || x >= clrt[0] && x <= clrt[1] && y >= clrt[2] && y <= clrt[3])
-        [self draw_marker: x : y : mk_index : scale : mk_color : context];
+      if (gkss->clip != GKS_K_CLIP || (x >= clrt[0] && x <= clrt[1] && y >= clrt[2] && y <= clrt[3]))
+        [self draw_marker: x : y : mk_index : scale/1000 : mk_color : context];
     }
   end_context(context);
 }

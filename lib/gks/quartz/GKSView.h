@@ -16,7 +16,7 @@ typedef struct {
     int size;
     int win_id;
     double angle;
-    double zoom;
+    double zoom, line_width_factor;
     double req_width, req_height;
     int has_been_resized;
     IBOutlet NSBox *extendSavePanelView;
@@ -31,6 +31,7 @@ typedef struct {
 
 - (void) resize_window: (double) vp_w : (double) vp_h;
 - (void) set_clip_rect: (int) tnr;
+- (void) set_zoom: (NSSize) size;
 
 - (void) gks_set_shadow;
 
