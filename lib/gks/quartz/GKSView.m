@@ -1630,7 +1630,7 @@ void fill_routine(int n, double *px, double *py, int tnr)
 {
   double scale, ux, uy;
   int fontsize;
-  double width, height, capheight;
+  double height; // width
 
   font = abs(font);
   if (font >= 101 && font <= 129)
@@ -1650,15 +1650,15 @@ void fill_routine(int n, double *px, double *py, int tnr)
   uy = gkss->chup[1] / scale * gkss->chh;
   WC_to_NDC_rel(ux, uy, gkss->cntnr, ux, uy);
 
-  width = 0;
+  /* width = 0; */
   height = sqrt(ux * ux + uy * uy);
-  seg_xform_rel(&width, &height);
+  /* seg_xform_rel(&width, &height); */
 
-  height = sqrt(width * width + height * height);
-  capheight = nint(height * (fabs(p->c) + 1));
-  p->capheight = nint(capheight);
+  /* height = sqrt(width * width + height * height); */
+  p->capheight = height * fabs(p->c);
+  /* NSLog(@"char height = %lf, capheight = %lf", height, p->capheight); */
 
-  fontsize = nint(capheight / capheights[font - 1]);
+  fontsize = p->capheight / capheights[font - 1];
   p->family = font - 1;
 
   _FontInfo info;

@@ -5,7 +5,7 @@
 #import "gksquartz.h"
 
 typedef struct {
-  int fontsize;
+  double fontsize;
   NSString *fontfamily;
 } _FontInfo;
 
