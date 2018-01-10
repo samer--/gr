@@ -272,20 +272,11 @@ void set_xform(void)
 static void seg_xform(double *x, double *y) { }
 static void seg_xform_rel(double *x, double *y) { }
 
-static void screen_size_metres(double *width, double *height)
-{
-  CGSize screen_size = CGDisplayScreenSize(CGMainDisplayID());
-  *width = 0.001 * screen_size.width;
-  *height = 0.001 * screen_size.height;
-}
-
 static void set_viewport_for_current_size(double *viewport)
 {
-  double mwidth, mheight;
-  screen_size_metres(&mwidth, &mheight);
   viewport[0] = viewport[2] = 0.0;
-  viewport[1] = p->width  * mwidth / p->swidth;
-  viewport[3] = p->height * mheight / p->sheight;
+  viewport[1] = p->width  / p->ppmm_x;
+  viewport[3] = p->height / p->ppmm_y;
 }
 
 @implementation GKSView
@@ -410,8 +401,11 @@ static void set_viewport_for_current_size(double *viewport)
           memcpy(&saved_gkss, gkss, sizeof(gks_state_list_t));
           memcpy(gkss, sl, sizeof(gks_state_list_t));
 
-          p->swidth  = NSMaxX([[[NSScreen screens] objectAtIndex:0] frame]);
-          p->sheight = NSMaxY([[[NSScreen screens] objectAtIndex:0] frame]);
+          CGSize screen_size = CGDisplayScreenSize(CGMainDisplayID());
+          p->mwidth = screen_size.width / 1000;
+          p->mheight = screen_size.height / 1000;
+          p->ppmm_x = NSMaxX([[[NSScreen screens] objectAtIndex:0] frame]) / screen_size.width;
+          p->ppmm_y = NSMaxY([[[NSScreen screens] objectAtIndex:0] frame]) / screen_size.height;
           p->width  = [self bounds].size.width;
           p->height = [self bounds].size.height;
 
@@ -420,8 +414,7 @@ static void set_viewport_for_current_size(double *viewport)
 
           set_viewport_for_current_size(p->viewport);
           zoom = min(p->width/req_width, p->height/req_height);
-          NSLog(@"OPEN_WS: zoom = %lf", zoom);
-          NSLog(@"current  size = %lf x %lf", p->width, p->height);
+          NSLog(@"OPEN_WS: size = %lf x %lf, zoom = %lf", p->width, p->height, zoom);
           set_xform();
           init_norm_xform();
 
@@ -963,12 +956,8 @@ static void set_viewport_for_current_size(double *viewport)
 
 - (void) resize_window : (double) vp_width : (double) vp_height
 {
-  double max_width, max_height;
-
-  screen_size_metres(&max_width, &max_height);
-  req_width  = vp_width / max_width  * p->swidth;
-  req_height = vp_height / max_height * p->sheight;
-  NSLog(@"desired size = %lf x %lf", req_width, req_height);
+  req_width  = 1000 * vp_width * p->ppmm_x;
+  req_height = 1000 * vp_height * p->ppmm_y;
 
   if (has_been_resized)
     {
@@ -981,21 +970,19 @@ static void set_viewport_for_current_size(double *viewport)
       p->viewport[0] = p->viewport[2] = 0;
       p->viewport[1] = vp_width;
       p->viewport[3] = vp_height;
-      gks_fit_ws_viewport(p->viewport, max_width, max_height, 0.0075);
+      gks_fit_ws_viewport(p->viewport, p->mwidth, p->mheight, 0);
 
-      double width  = (p->viewport[1] - p->viewport[0]) / max_width  * p->swidth;
-      double height = (p->viewport[3] - p->viewport[2]) / max_height * p->sheight;
-      zoom = min(width/req_width, width/req_height);
+      double width  = 1000 * (p->viewport[1] - p->viewport[0]) * p->ppmm_x;
+      double height = 1000 * (p->viewport[3] - p->viewport[2]) * p->ppmm_y;
+      zoom = min(width/req_width, height/req_height);
       NSLog(@"variable size; zoom = %lf", zoom);
 
-      NSLog(@"target size = %lf x %lf", width, height);
-      NSLog(@"current  size = %lf x %lf", p->width, p->height);
+      NSLog(@"current size: %lf x %lf, target size: %lf x %lf", p->width, p->height, width, height);
       if (fabs(p->width - width) > 1e-9 || fabs(p->height - height) > 1e-9)
         {
           p->width = width;
           p->height = height;
 
-          NSLog(@"setting transforms");
           set_xform();
           init_norm_xform();
 

@@ -7,7 +7,8 @@ typedef struct
     int win;
     gks_display_list_t dl;
     double width, height;
-    double swidth, sheight;
+    double ppmm_x, ppmm_y; // screen units per millimetre, both axes
+    double mwidth, mheight; // screen size in metres
     double a, b, c, d;
     double window[4], viewport[4];
     CGColorRef rgb[MAX_COLOR];
