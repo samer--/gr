@@ -1,6 +1,7 @@
 
 #include "gks.h"
 #include "gkscore.h"
+#include "marker.h"
 
 #import "GKSView.h"
 
@@ -8,6 +9,7 @@
 #define PATTERNS 120
 #define HATCH_STYLE 108
 #define NUM_POINTS 10000
+#define M_PER_POINT (0.0254/72)
 
 #define RESOLVE(arg, type, nbytes) arg = (type *)(s + sp); sp += nbytes
 
@@ -1119,32 +1121,18 @@ void line_routine(int n, double *px, double *py, int linetype, int tnr)
   end_context(context);
 }
 
-- (void) draw_marker: (double) xn : (double) yn : (int) mtype :
-                      (double) mscale : (int) mcolor : (CGContextRef) context
+- (void) draw_marker: (double) xn : (double) yn : (int) mindex :
+                      (double) scale : (int) mcolor : (CGContextRef) context
 {
-  int r, x, y, i;
-  double scale, xr, yr;
+  int x, y, i;
   int pc, op;
 
-#include "marker.h"
-
-  mscale *= (p->width + p->height) * 0.001;
-  r = (int)(3 * mscale);
-  scale = 0.01 * mscale / 3.0;
-
-  xr = r;
-  yr = 0;
-  seg_xform_rel(&xr, &yr);
-  r = nint(sqrt(xr * xr + yr * yr));
-
   NDC_to_DC(xn, yn, x, y);
-
   pc = 0;
-  mtype = (r > 0) ? mtype + marker_off : marker_off + 1;
 
   do
     {
-      op = marker[mtype][pc];
+      op = marker[mindex][pc];
       switch (op)
         {
         case 1: // point
@@ -1155,8 +1143,8 @@ void line_routine(int n, double *px, double *py, int linetype, int tnr)
           CGContextBeginPath(context);
           for (i = 0; i < 2; i++)
             {
-              xr =  scale * marker[mtype][pc + 2 * i + 1];
-              yr =  scale * marker[mtype][pc + 2 * i + 2];
+              double xr =  scale * marker[mindex][pc + 2 * i + 1];
+              double yr =  scale * marker[mindex][pc + 2 * i + 2];
               seg_xform_rel(&xr, &yr);
               if (i == 0)
                 CGContextMoveToPoint(context, x - xr, y + yr);
@@ -1169,10 +1157,10 @@ void line_routine(int n, double *px, double *py, int linetype, int tnr)
 
         case 3: // polyline
           CGContextBeginPath(context);
-          for (i = 0; i < marker[mtype][pc + 1]; i++)
+          for (i = 0; i < marker[mindex][pc + 1]; i++)
             {
-              xr =  scale * marker[mtype][pc + 2 + 2 * i];
-              yr =  scale * marker[mtype][pc + 3 + 2 * i];
+              double xr =  scale * marker[mindex][pc + 2 + 2 * i];
+              double yr =  scale * marker[mindex][pc + 3 + 2 * i];
               seg_xform_rel(&xr, &yr);
               if (i == 0)
                 CGContextMoveToPoint(context, x - xr, y + yr);
@@ -1181,7 +1169,7 @@ void line_routine(int n, double *px, double *py, int linetype, int tnr)
             }
           CGContextClosePath(context);
           CGContextDrawPath(context, kCGPathStroke);
-          pc += 1 + 2 * marker[mtype][pc + 1];
+          pc += 1 + 2 * marker[mindex][pc + 1];
           break;
 
         case 4: // filled polygon
@@ -1189,10 +1177,10 @@ void line_routine(int n, double *px, double *py, int linetype, int tnr)
           CGContextBeginPath(context);
           if (op == 5)
             [self set_fill_color: 0 : context];
-          for (i = 0; i < marker[mtype][pc + 1]; i++)
+          for (i = 0; i < marker[mindex][pc + 1]; i++)
             {
-              xr =  scale * marker[mtype][pc + 2 + 2 * i];
-              yr =  scale * marker[mtype][pc + 3 + 2 * i];
+              double xr =  scale * marker[mindex][pc + 2 + 2 * i];
+              double yr =  scale * marker[mindex][pc + 3 + 2 * i];
               seg_xform_rel(&xr, &yr);
               if (i == 0)
                 CGContextMoveToPoint(context, x - xr, y + yr);
@@ -1202,14 +1190,14 @@ void line_routine(int n, double *px, double *py, int linetype, int tnr)
           CGContextClosePath(context);
           CGContextDrawPath(context, kCGPathFill);
 
-          pc += 1 + 2 * marker[mtype][pc + 1];
+          pc += 1 + 2 * marker[mindex][pc + 1];
           if (op == 5)
             [self set_fill_color: mcolor : context];
           break;
 
         case 6: // arc
           CGContextBeginPath(context);
-          CGContextAddArc(context, x, y, r, 0.0, 2*M_PI,0);
+          CGContextAddArc(context, x, y, 1000*scale, 0.0, 2*M_PI,0);
           CGContextDrawPath(context, kCGPathStroke);
           break;
 
@@ -1218,7 +1206,7 @@ void line_routine(int n, double *px, double *py, int linetype, int tnr)
           if (op == 8)
             [self set_fill_color: 0 : context];
           CGContextBeginPath(context);
-          CGContextAddArc(context, x, y, r, 0.0, 2*M_PI,0);
+          CGContextAddArc(context, x, y, 1000*scale, 0.0, 2*M_PI,0);
           CGContextDrawPath(context, kCGPathFill);
           if (op == 8)
             [self set_fill_color: mcolor : context];
@@ -1230,36 +1218,25 @@ void line_routine(int n, double *px, double *py, int linetype, int tnr)
 
 - (void) polymarker: (int) n : (double *) px : (double *) py
 {
-  int mk_type, mk_color;
-  double mk_size;
-  double x, y;
+  int    mk_type  = gkss->asf[3] ? gkss->mtype : gkss->mindex;
+  double mk_size  = gkss->asf[4] ? gkss->mszsc : 1;
+  int    mk_color = gkss->asf[5] ? gkss->pmcoli : 1;
   double *clrt = gkss->viewport[gkss->cntnr];
-  int i, draw;
-
-  mk_type  = gkss->asf[3] ? gkss->mtype : gkss->mindex;
-  mk_size  = gkss->asf[4] ? gkss->mszsc : 1;
-  mk_color = gkss->asf[5] ? gkss->pmcoli : 1;
-
-  [self set_stroke_color: mk_color : context];
+  double x, y, scale = zoom * M_PER_POINT * p->ppmm_y * mk_size/2;
+  int    i, mk_index = mk_type + marker_off;
 
   begin_context(context);
 
-  CGContextSetLineWidth(context, zoom * 1);
+  CGContextSetLineWidth(context, zoom * mk_size / 8);
   [self set_stroke_color: mk_color : context];
   [self set_fill_color: mk_color : context];
 
   for (i = 0; i < n; i++)
     {
       WC_to_NDC(px[i], py[i], gkss->cntnr, x, y);
-      seg_xform(&x, &y);
-
-      if (gkss->clip == GKS_K_CLIP)
-        draw = (x >= clrt[0] && x <= clrt[1] && y >= clrt[2] && y <= clrt[3]);
-      else
-        draw = 1;
-
-      if (draw)
-        [self draw_marker: x : y : mk_type : mk_size : mk_color : context];
+      /* seg_xform(&x, &y); */
+      if (gkss->clip != GKS_K_CLIP || x >= clrt[0] && x <= clrt[1] && y >= clrt[2] && y <= clrt[3])
+        [self draw_marker: x : y : mk_index : scale : mk_color : context];
     }
   end_context(context);
 }
