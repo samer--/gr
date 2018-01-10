@@ -435,97 +435,33 @@ static void set_viewport_for_current_size(double *viewport)
           [self set_clip_rect: gkss->cntnr];
           break;
 
-        case 12:
-          [self polyline: i_arr[0] : f_arr_1 : f_arr_2];
-          break;
-
-        case 13:
-          [self polymarker: i_arr[0] : f_arr_1 : f_arr_2];
-          break;
-
-        case 14:
-          [self text: f_arr_1[0] : f_arr_2[0] : c_arr];
-          break;
-
-        case 15:
-          [self fillarea: i_arr[0] : f_arr_1 : f_arr_2];
-          break;
+        case 12: [self polyline:   i_arr[0]   : f_arr_1    : f_arr_2]; break;
+        case 13: [self polymarker: i_arr[0]   : f_arr_1    : f_arr_2]; break;
+        case 14: [self text:       f_arr_1[0] : f_arr_2[0] : c_arr];   break;
+        case 15: [self fillarea:   i_arr[0]   : f_arr_1    : f_arr_2]; break;
 
         case 16:
           [self cellarray: f_arr_1[0] : f_arr_1[1] : f_arr_2[0] : f_arr_2[1]:
                            *dx : *dy :  *dimx : i_arr : 0];
           break;
 
-        case 19:
-          gkss->ltype = i_arr[0];
-          break;
-
-        case 20:
-          gkss->lwidth = f_arr_1[0];
-          break;
-
-        case 21:
-          gkss->plcoli = i_arr[0];
-          break;
-
-        case 23:
-          gkss->mtype = i_arr[0];
-          break;
-
-        case 24:
-          gkss->mszsc = f_arr_1[0];
-          break;
-
-        case 25:
-          gkss->pmcoli = i_arr[0];
-          break;
-
-        case 27:
-          gkss->txfont = i_arr[0];
-          gkss->txprec = i_arr[1];
-          break;
-
-        case 28:
-          gkss->chxp = f_arr_1[0];
-          break;
-
-        case 29:
-          gkss->chsp = f_arr_1[0];
-          break;
-
-        case 30:
-          gkss->txcoli = i_arr[0];
-          break;
-
-        case 31:
-          gkss->chh = f_arr_1[0];
-          break;
-
-        case 32:
-          gkss->chup[0] = f_arr_1[0];
-          gkss->chup[1] = f_arr_2[0];
-          break;
-
-        case 33:
-          gkss->txp = i_arr[0];
-          break;
-
-        case 34:
-          gkss->txal[0] = i_arr[0];
-          gkss->txal[1] = i_arr[1];
-          break;
-
-        case 36:
-          gkss->ints = i_arr[0];
-          break;
-
-        case 37:
-          gkss->styli = i_arr[0];
-          break;
-
-        case 38:
-          gkss->facoli = i_arr[0];
-          break;
+        case 19: gkss->ltype   = i_arr[0];   break;
+        case 20: gkss->lwidth  = f_arr_1[0]; break;
+        case 21: gkss->plcoli  = i_arr[0];   break;
+        case 23: gkss->mtype   = i_arr[0];   break;
+        case 24: gkss->mszsc   = f_arr_1[0]; break;
+        case 25: gkss->pmcoli  = i_arr[0];   break;
+        case 27: gkss->txfont  = i_arr[0];   gkss->txprec = i_arr[1]; break;
+        case 28: gkss->chxp    = f_arr_1[0]; break; 
+        case 29: gkss->chsp    = f_arr_1[0]; break;
+        case 30: gkss->txcoli  = i_arr[0];   break;
+        case 31: gkss->chh     = f_arr_1[0]; break;
+        case 32: gkss->chup[0] = f_arr_1[0]; gkss->chup[1] = f_arr_2[0]; break;
+        case 33: gkss->txp     = i_arr[0];   break;
+        case 34: gkss->txal[0] = i_arr[0];   gkss->txal[1] = i_arr[1]; break;
+        case 36: gkss->ints    = i_arr[0];   break;
+        case 37: gkss->styli   = i_arr[0];   break;
+        case 38: gkss->facoli  = i_arr[0];   break;
 
         case 41:
           for (i = 0; i < 13; i++)
@@ -542,7 +478,6 @@ static void set_viewport_for_current_size(double *viewport)
           gkss->window[*i_arr][1] = f_arr_1[1];
           gkss->window[*i_arr][2] = f_arr_2[0];
           gkss->window[*i_arr][3] = f_arr_2[1];
-          /* set_xform(); */
           set_norm_xform(*i_arr, gkss->window[*i_arr], gkss->viewport[*i_arr]);
           break;
 
