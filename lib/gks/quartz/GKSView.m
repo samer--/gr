@@ -567,7 +567,7 @@ static void set_viewport_for_current_size(double *viewport)
 
 - (void) set_zoom: (NSSize) sz
 {
-  double z = min(sz.width/req_width, sz.width/req_height);
+  double z = min(sz.width/req_width, sz.height/req_height);
   NSLog(@"settings zoom = %lf", z);
   line_width_factor = z * p->ppmm_y * MM_PER_POINT;
 }
