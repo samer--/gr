@@ -1164,8 +1164,6 @@ void line_routine(int n, double *px, double *py, int linetype, int tnr)
         case 4: // filled polygon
         case 5: // hollow polygon
           CGContextBeginPath(context);
-          if (op == 5)
-            [self set_fill_color: 0 : context];
           for (i = 0; i < marker[mindex][pc + 1]; i++)
             {
               double xr =  scale * marker[mindex][pc + 2 + 2 * i];
@@ -1177,11 +1175,9 @@ void line_routine(int n, double *px, double *py, int linetype, int tnr)
                 CGContextAddLineToPoint(context, x - xr, y + yr);
             }
           CGContextClosePath(context);
-          CGContextDrawPath(context, kCGPathFill);
+          CGContextDrawPath(context, op == 5 ? kCGPathStroke : kCGPathFill);
 
           pc += 1 + 2 * marker[mindex][pc + 1];
-          if (op == 5)
-            [self set_fill_color: mcolor : context];
           break;
 
         case 6: // arc
@@ -1192,13 +1188,9 @@ void line_routine(int n, double *px, double *py, int linetype, int tnr)
 
         case 7: // filled arc
         case 8: // hollow arc
-          if (op == 8)
-            [self set_fill_color: 0 : context];
           CGContextBeginPath(context);
           CGContextAddArc(context, x, y, 1000*scale, 0.0, 2*M_PI,0);
-          CGContextDrawPath(context, kCGPathFill);
-          if (op == 8)
-            [self set_fill_color: mcolor : context];
+          CGContextDrawPath(context, op == 8 ? kCGPathStroke : kCGPathFill);
           break;
         }
       pc++;
