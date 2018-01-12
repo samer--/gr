@@ -400,8 +400,7 @@ static void seg_xform_rel(double *x, double *y) { }
 
           p->width  = win_size.width;
           p->height = win_size.height;
-          p->window[0] = p->window[2] = 0.0;
-          p->window[1] = p->window[3] = 1.0; // TODO: consider not resetting this here.
+			 memcpy(p->window, window, 4*sizeof(double));
           p->viewport[0] = p->viewport[2] = 0.0;
           p->viewport[1] = p->width  / ppm_x;
           p->viewport[3] = p->height / ppm_y;
@@ -489,10 +488,11 @@ static void seg_xform_rel(double *x, double *y) { }
           break;
 
         case 54:
-          p->window[0] = f_arr_1[0];
-          p->window[1] = f_arr_1[1];
-          p->window[2] = f_arr_2[0];
-          p->window[3] = f_arr_2[1];
+          window[0] = f_arr_1[0];
+          window[1] = f_arr_1[1];
+          window[2] = f_arr_2[0];
+          window[3] = f_arr_2[1];
+          memcpy(p->window, window, 4*sizeof(double));
 
           set_xform();
           init_norm_xform();
@@ -544,6 +544,8 @@ static void seg_xform_rel(double *x, double *y) { }
       size = 0;
       angle = 0;
       has_been_resized = 0;
+      window[0] = window[2] = 0.0;
+      window[1] = window[3] = 1.0;
       req_width = frame.size.width;
       req_height = frame.size.height;
       fontfile = gks_open_font();

@@ -15,6 +15,7 @@ typedef struct {
     char *buffer;
     int size;
     int win_id;
+    double window[4];
     double angle;
     double zoom, line_width_factor;
     double req_width, req_height; 
