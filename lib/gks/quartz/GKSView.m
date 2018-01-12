@@ -981,8 +981,7 @@ static void seg_xform_rel(double *x, double *y) { }
           rect.origin.y    += contentSize.height - height;
 
           NSLog(@"Calling setFrame, size = %lf x %lf", width, height);
-          [[self window] setFrame: rect display: YES];
-          [self setNeedsDisplay: YES];
+          [[self window] setFrame: rect display: NO];
         }
     }
 }
