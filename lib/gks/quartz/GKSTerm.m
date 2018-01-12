@@ -80,6 +80,11 @@
   return window[win] != nil ? 1 : 0;
 }
 
+- (void) GKSQuartzResize: (int) win : (double) width : (double) height
+{
+  [view[win] resize_window: width : height];
+}
+
 - (void) GKSQuartzDraw: (int) win displayList: (id) displayList
 {
   [view[win] setDisplayList: displayList];

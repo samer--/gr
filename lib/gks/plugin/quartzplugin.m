@@ -282,6 +282,11 @@ void gks_quartzplugin(
       }
       break;
 
+   case SET_WS_VIEWPORT:
+		[plugin GKSQuartzResize: wss->win : r1[1] - r1[0] : r2[1] - r2[0]];
+		wss = NULL;
+		break;
+
    case CLEAR_WS:
       break;
 

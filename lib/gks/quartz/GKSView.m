@@ -9,7 +9,7 @@
 #define PATTERNS 120
 #define HATCH_STYLE 108
 #define NUM_POINTS 10000
-#define MM_PER_POINT (25.4/72)
+#define M_PER_POINT (0.0254/72)
 
 #define RESOLVE(arg, type, nbytes) arg = (type *)(s + sp); sp += nbytes
 
@@ -272,13 +272,6 @@ void set_xform(void)
 static void seg_xform(double *x, double *y) { }
 static void seg_xform_rel(double *x, double *y) { }
 
-static void set_viewport_for_current_size(double *viewport)
-{
-  viewport[0] = viewport[2] = 0.0;
-  viewport[1] = p->width  / p->ppmm_x;
-  viewport[3] = p->height / p->ppmm_y;
-}
-
 @implementation GKSView
 
 - (void) interp: (char *) str
@@ -399,23 +392,20 @@ static void set_viewport_for_current_size(double *viewport)
           /*   NSString *title = [NSString stringWithFormat:@"GKSTerm (ws %d)", wkid]; */
           /*   [[self window] setTitle: title]; */
           /* } */
-          memcpy(&saved_gkss, gkss, sizeof(gks_state_list_t));
-          memcpy(gkss, sl, sizeof(gks_state_list_t));
+          saved_gkss = *gkss;
+          *gkss = *sl;
 
-          CGSize screen_size = CGDisplayScreenSize(CGMainDisplayID());
           NSSize win_size = self.bounds.size;
           [self set_zoom: win_size];
 
-          p->mwidth = screen_size.width / 1000;
-          p->mheight = screen_size.height / 1000;
-          p->ppmm_x = NSMaxX([[[NSScreen screens] objectAtIndex:0] frame]) / screen_size.width;
-          p->ppmm_y = NSMaxY([[[NSScreen screens] objectAtIndex:0] frame]) / screen_size.height;
           p->width  = win_size.width;
           p->height = win_size.height;
           p->window[0] = p->window[2] = 0.0;
           p->window[1] = p->window[3] = 1.0; // TODO: consider not resetting this here.
+          p->viewport[0] = p->viewport[2] = 0.0;
+          p->viewport[1] = p->width  / ppm_x;
+          p->viewport[3] = p->height / ppm_y;
 
-          set_viewport_for_current_size(p->viewport);
           set_xform();
           init_norm_xform();
 
@@ -508,10 +498,6 @@ static void set_viewport_for_current_size(double *viewport)
           init_norm_xform();
           break;
 
-        case  55:
-          [self resize_window: f_arr_1[1] - f_arr_1[0] : f_arr_2[1] - f_arr_2[0]];
-          break;
-
         case 200:
           gkss->txslant = f_arr_1[0];
           break;
@@ -561,6 +547,11 @@ static void set_viewport_for_current_size(double *viewport)
       req_width = frame.size.width;
       req_height = frame.size.height;
       fontfile = gks_open_font();
+      screen_size = CGDisplayScreenSize(CGMainDisplayID());
+      screen_size.width /= 1000; screen_size.height /= 1000; // convert to metres
+      ppm_x = NSMaxX([[[NSScreen screens] objectAtIndex:0] frame]) / screen_size.width;
+      ppm_y = NSMaxY([[[NSScreen screens] objectAtIndex:0] frame]) / screen_size.height;
+      [self set_zoom: self.bounds.size]; // !!!! used frame.size? is self.bounds right yet?
     }
   return self;
 }
@@ -569,7 +560,7 @@ static void set_viewport_for_current_size(double *viewport)
 {
   double z = min(sz.width/req_width, sz.height/req_height);
   NSLog(@"settings zoom = %lf", z);
-  line_width_factor = z * p->ppmm_y * MM_PER_POINT;
+  line_width_factor = z * ppm_y * M_PER_POINT;
 }
 
 - (void) drawRect: (NSRect) rect
@@ -963,31 +954,23 @@ static void set_viewport_for_current_size(double *viewport)
 
 - (void) resize_window : (double) vp_width : (double) vp_height
 {
-  req_width  = 1000 * vp_width * p->ppmm_x;
-  req_height = 1000 * vp_height * p->ppmm_y;
+  req_width  = vp_width * ppm_x;
+  req_height = vp_height * ppm_y;
 
   if (has_been_resized)
     [self set_zoom: [self bounds].size];
   else
     {
-      p->viewport[0] = p->viewport[2] = 0;
-      p->viewport[1] = vp_width;
-      p->viewport[3] = vp_height;
-      gks_fit_ws_viewport(p->viewport, p->mwidth, p->mheight, 0);
+      double viewport[4] = { 0, vp_width, 0, vp_height };
+      gks_fit_ws_viewport(viewport, screen_size.width, screen_size.height, 0);
 
-      double width  = 1000 * (p->viewport[1] - p->viewport[0]) * p->ppmm_x;
-      double height = 1000 * (p->viewport[3] - p->viewport[2]) * p->ppmm_y;
+      double width  = (viewport[1] - viewport[0]) * ppm_x;
+      double height = (viewport[3] - viewport[2]) * ppm_y;
       [self set_zoom: NSMakeSize(width, height)];
 
       NSLog(@"current size: %lf x %lf, target size: %lf x %lf", p->width, p->height, width, height);
       if (fabs(p->width - width) > 1e-9 || fabs(p->height - height) > 1e-9)
         {
-          p->width = width;
-          p->height = height;
-
-          set_xform();
-          init_norm_xform();
-
           NSRect rect = [[self window] frame];
           NSSize contentSize = [[self window] contentRectForFrameRect: rect].size;
 
