@@ -400,7 +400,7 @@ static void seg_xform_rel(double *x, double *y) { }
 
           p->width  = win_size.width;
           p->height = win_size.height;
-			 memcpy(p->window, window, 4*sizeof(double));
+          memcpy(p->window, window, 4*sizeof(double));
           p->viewport[0] = p->viewport[2] = 0.0;
           p->viewport[1] = p->width  / ppm_x;
           p->viewport[3] = p->height / ppm_y;
