@@ -1777,8 +1777,6 @@ gks_list_t *gks_list_del(gks_list_t *list, int element)
       if (list->item == element)
 	{
 	  next = list->next;
-	  if (list->ptr != NULL)
-	    gks_free(list->ptr);
 	  gks_free((void *) list);
 
 	  if (prev != NULL)

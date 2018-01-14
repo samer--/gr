@@ -112,65 +112,56 @@ void gks_dl_write_item(gks_display_list_t *d,
     case  12:                        /* polyline */
     case  13:                        /* polymarker */
     case  15:                        /* fill area */
-      if (d->state == GKS_K_WS_ACTIVE)
-        {
-          len = 3 * sizeof(int) + 2 * ia[0] * sizeof(double);
-          if (d->nbytes + len > d->size)
-            reallocate(d, len);
+       len = 3 * sizeof(int) + 2 * ia[0] * sizeof(double);
+       if (d->nbytes + len > d->size)
+         reallocate(d, len);
 
-          COPY(&len, sizeof(int));
-          COPY(&fctid, sizeof(int));
-          COPY(ia, sizeof(int));
-          COPY(r1, ia[0] * sizeof(double));
-          COPY(r2, ia[0] * sizeof(double));
+       COPY(&len, sizeof(int));
+       COPY(&fctid, sizeof(int));
+       COPY(ia, sizeof(int));
+       COPY(r1, ia[0] * sizeof(double));
+       COPY(r2, ia[0] * sizeof(double));
 
-          d->empty = 0;
-        }
+       d->empty = 0;
       break;
 
     case  14:                        /* text */
-      if (d->state == GKS_K_WS_ACTIVE)
-        {
-          len = 3 * sizeof(int) + 2 * sizeof(double) + 132;
-          if (d->nbytes + len > d->size)
-            reallocate(d, len);
+       len = 3 * sizeof(int) + 2 * sizeof(double) + 132;
+       if (d->nbytes + len > d->size)
+         reallocate(d, len);
 
-          memset((void *) s, 0, 132);
-          slen = strlen(c);
-          strncpy(s, c, slen);
+       memset((void *) s, 0, 132);
+       slen = strlen(c);
+       strncpy(s, c, slen);
 
-          COPY(&len, sizeof(int));
-          COPY(&fctid, sizeof(int));
-          COPY(r1, sizeof(double));
-          COPY(r2, sizeof(double));
-          COPY(&slen, sizeof(int));
-          COPY(s, 132);
+       COPY(&len, sizeof(int));
+       COPY(&fctid, sizeof(int));
+       COPY(r1, sizeof(double));
+       COPY(r2, sizeof(double));
+       COPY(&slen, sizeof(int));
+       COPY(s, 132);
 
-          d->empty = 0;
-        }
+       d->empty = 0;
       break;
 
     case  16:                        /* cell array */
     case 201:                        /* draw image */
-      if (d->state == GKS_K_WS_ACTIVE)
-        {
-          len = (5 + dimx * dy) * sizeof(int) + 4 * sizeof(double);
-          if (d->nbytes + len > d->size)
-            reallocate(d, len);
+       len = (5 + dimx * dy) * sizeof(int) + 4 * sizeof(double);
+       if (d->nbytes + len > d->size)
+         reallocate(d, len);
 
-          COPY(&len, sizeof(int));
-          COPY(&fctid, sizeof(int));
-          COPY(r1, 2 * sizeof(double));
-          COPY(r2, 2 * sizeof(double));
-          COPY(&dx, sizeof(int));
-          COPY(&dy, sizeof(int));
-          COPY(&dimx, sizeof(int));
-          tp = dimx * (dy - 1) + dx;
-          COPY(ia, tp * sizeof(int));
-          PAD((dimx - dx) * sizeof(int)); /* (dimx * dy - tp) elements */
+       COPY(&len, sizeof(int));
+       COPY(&fctid, sizeof(int));
+       COPY(r1, 2 * sizeof(double));
+       COPY(r2, 2 * sizeof(double));
+       COPY(&dx, sizeof(int));
+       COPY(&dy, sizeof(int));
+       COPY(&dimx, sizeof(int));
+       tp = dimx * (dy - 1) + dx;
+       COPY(ia, tp * sizeof(int));
+       PAD((dimx - dx) * sizeof(int)); /* (dimx * dy - tp) elements */
 
-          d->empty = 0;
-        }
+       d->empty = 0;
       break;
 
     case  19:                        /* set linetype */
@@ -184,7 +175,6 @@ void gks_dl_write_item(gks_display_list_t *d,
     case  38:                        /* set fillarea color index */
     case  52:                        /* select normalization transformation */
     case  53:                        /* set clipping indicator */
-      if (d->state != GKS_K_WS_ACTIVE) break;
       len = 3 * sizeof(int);
       if (d->nbytes + len > d->size)
         reallocate(d, len);
@@ -196,7 +186,6 @@ void gks_dl_write_item(gks_display_list_t *d,
 
     case  27:                        /* set text font and precision */
     case  34:                        /* set text alignment */
-      if (d->state != GKS_K_WS_ACTIVE) break;
       len = 4 * sizeof(int);
       if (d->nbytes + len > d->size)
         reallocate(d, len);
@@ -213,8 +202,6 @@ void gks_dl_write_item(gks_display_list_t *d,
     case  31:                        /* set character height */
     case 200:                        /* set text slant */
     case 203:                        /* set transparency */
-      if (d->state != GKS_K_WS_ACTIVE) break;
-
       len = 2 * sizeof(int) + sizeof(double);
       if (d->nbytes + len > d->size)
         reallocate(d, len);
@@ -225,8 +212,6 @@ void gks_dl_write_item(gks_display_list_t *d,
       break;
 
     case  32:                        /* set character up vector */
-      if (d->state != GKS_K_WS_ACTIVE) break;
-
       len = 2 * sizeof(int) + 2 * sizeof(double);
       if (d->nbytes + len > d->size)
         reallocate(d, len);
@@ -238,8 +223,6 @@ void gks_dl_write_item(gks_display_list_t *d,
       break;
 
     case  41:                        /* set aspect source flags */
-      if (d->state != GKS_K_WS_ACTIVE) break;
-
       len = 15 * sizeof(int);
       if (d->nbytes + len > d->size)
         reallocate(d, len);
@@ -265,8 +248,6 @@ void gks_dl_write_item(gks_display_list_t *d,
     case  50:                        /* set viewport */
     case  54:                        /* set workstation window */
     case  55:                        /* set workstation viewport */
-      if (d->state != GKS_K_WS_ACTIVE) break;
-
       len = 3 * sizeof(int) + 4 * sizeof(double);
       if (d->nbytes + len > d->size)
         reallocate(d, len);
@@ -279,8 +260,6 @@ void gks_dl_write_item(gks_display_list_t *d,
       break;
 
     case 202:                        /* set shadow */
-      if (d->state != GKS_K_WS_ACTIVE) break;
-
       len = 2 * sizeof(int) + 3 * sizeof(double);
       if (d->nbytes + len >= d->size)
 	reallocate(d, len);
@@ -291,8 +270,6 @@ void gks_dl_write_item(gks_display_list_t *d,
       break;
 
     case 204:                        /* set coord xform */
-      if (d->state != GKS_K_WS_ACTIVE) break;
-
       len = 2 * sizeof(int) + 6 * sizeof(double);
       if (d->nbytes + len >= d->size)
 	reallocate(d, len);
