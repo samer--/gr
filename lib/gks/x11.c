@@ -1934,14 +1934,12 @@ void set_line_attr(int linetype, double linewidth)
           for (i = 0; i < 10; i++)
             dash_list[i] = (int) list[i];
 
-          XSetLineAttributes(p->dpy, p->gc, width, LineOnOffDash,
-                             CapNotLast, JoinRound);
+          XSetLineAttributes(p->dpy, p->gc, width, LineOnOffDash, CapNotLast, JoinMiter);
           n = (int) dash_list[0];
           XSetDashes(p->dpy, p->gc, 0, &dash_list[1], n);
         }
       else
-        XSetLineAttributes(p->dpy, p->gc, width, LineSolid, CapNotLast,
-                           JoinRound);
+        XSetLineAttributes(p->dpy, p->gc, width, LineSolid, CapNotLast, JoinMiter);
 
       p->ltype = linetype;
       p->lwidth = width;
