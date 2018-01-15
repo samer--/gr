@@ -82,13 +82,11 @@ void gks_dl_write_item(gks_display_list_t *d,
       break;
 
     case   6:                        /* clear workstation */
-      // FIXME this purge stuff is very problematic.
-      // Questions: where should various states be kept? Should some functions have immediate
-      // effect and not be stored in the buffer/display list?
+      // FIXME this purge stuff is problematic.
       // Why should it make a difference whether or not d->empty is true?
+      // Surely the important question is whether or not the plugin has received the command?
       if (d->empty)
         {
-          printf("dl> purging...\n");
           t = gks_malloc(d->size);
           tp = purge(d, t);
         }
@@ -103,7 +101,6 @@ void gks_dl_write_item(gks_display_list_t *d,
 
       if (d->empty)
         {
-          printf("dl> copying result of purge...\n");
           COPY(t, tp);
           free(t);
         }

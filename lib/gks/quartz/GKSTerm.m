@@ -85,9 +85,9 @@
   [view[win] resize_window: width : height];
 }
 
-- (void) GKSQuartzDraw: (int) win displayList: (id) displayList
+- (void) GKSQuartzDraw: (int) win displayList: (id) displayList needsDisplay: (bool) needsDisplay
 {
-  [view[win] setDisplayList: displayList];
+  [view[win] setDisplayList: displayList : needsDisplay];
 }
 
 - (void) GKSQuartzCloseWindow: (int) win

@@ -57,6 +57,21 @@ static
 NSTask *task = NULL;
 
 
+static int update(ws_state_list *wss) 
+{
+  [wss->displayList initWithBytesNoCopy: wss->dl.buffer length: wss->dl.nbytes freeWhenDone: NO];
+  @try {
+    [plugin GKSQuartzDraw: wss->win displayList: wss->displayList needsDisplay: !wss->pending_resize];
+    if (wss->pending_resize) {
+      [plugin GKSQuartzResize: wss->win : wss->resize_width : wss->resize_height];
+      wss->pending_resize = 0;
+    }
+    return 0;
+  } @catch (NSException *e) {
+    return 1;
+  }
+}
+
 @interface wss_wrapper:NSObject
 {
   ws_state_list *wss;
@@ -83,24 +98,13 @@ NSTask *task = NULL;
 
   NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
   while (!didDie && wss != NULL)
-  {
+    {
       [mutex lock];
-      if (wss->inactivity_counter == 3)
-	{
-          [wss->displayList initWithBytesNoCopy: wss->dl.buffer
-                       length: wss->dl.nbytes freeWhenDone: NO];
-          @try
-            {
-              [plugin GKSQuartzDraw: wss->win displayList: wss->displayList];
-	      wss->inactivity_counter = -1;
-            }
-          @catch (NSException *e)
-            {
-              didDie = 1;
-            }
-        }
-      if (wss->inactivity_counter >= 0)
-        wss->inactivity_counter++;
+      if (wss->update_countdown > 0) {
+        wss->update_countdown--;
+        if (wss->update_countdown == 0) 
+          didDie = update(wss);
+      }
       @try
         {
           if ([plugin GKSQuartzIsAlive: wss->win] == 0)
@@ -121,16 +125,15 @@ NSTask *task = NULL;
         }
       @catch (NSException *e)
         {
+          printf("q> killing master thread due to exception\n");
           pthread_kill(wss->master_thread, SIGTERM);
           didDie = 1;
         }
 
-    if (didDie) {
-      wss->thread_alive = NO;
-    }
-    [mutex unlock];
+      if (didDie) wss->thread_alive = NO;
+      [mutex unlock];
 
-    usleep(500000);
+      usleep(250000);
     }
   [pool drain];
 }
@@ -188,6 +191,8 @@ void gks_quartzplugin(
       gkss = (gks_state_list_t *) *ptr;
 
       wss = (ws_state_list *) calloc(1, sizeof(ws_state_list));
+      wss->pending_resize = 0;
+      wss->update_countdown = -1; // assume deferred mode
       wss->displayList = [[NSData alloc] initWithBytesNoCopy: wss
                                     length: sizeof(ws_state_list)
                                     freeWhenDone: NO];
@@ -283,30 +288,26 @@ void gks_quartzplugin(
       break;
 
    case SET_WS_VIEWPORT:
-		[plugin GKSQuartzResize: wss->win : r1[1] - r1[0] : r2[1] - r2[0]];
-		wss = NULL;
-		break;
+      wss->pending_resize = 1;
+      wss->resize_width = r1[1] - r1[0];
+      wss->resize_height = r2[1] - r2[0];
+      wss = NULL;
+      break;
 
    case CLEAR_WS:
+      [mutex lock];
+      wss->update_countdown = (ia[1] == GKS_K_CLEAR_CONDITIONALLY) ? -1 : 8;
+      [mutex unlock];
       break;
 
    case UPDATE_WS:
-      if (ia[1] == GKS_K_PERFORM_FLAG) // TODO: maybe remove this test
-        {
-          [mutex lock];
-          [wss->displayList initWithBytesNoCopy: wss->dl.buffer
-                       length: wss->dl.nbytes freeWhenDone: NO];
-          @try
-            {
-              [plugin GKSQuartzDraw: wss->win displayList: wss->displayList];
-              wss->inactivity_counter = -1;
-            }
-          @catch (NSException *e)
-            {
-              ;
-            }
-          [mutex unlock];
-        }
+      if (ia[1] == GKS_K_PERFORM_FLAG) {
+        [mutex lock];
+        wss->update_countdown = -1;
+        update(wss);
+        [mutex unlock];
+      }
+      wss = NULL;
       break;
 
     case POLYLINE:
@@ -316,14 +317,11 @@ void gks_quartzplugin(
     case CELLARRAY:
     case GDP:
     case DRAW_IMAGE:
-      // FIXME this is bad because it will trigger a redraw even if this
-      // is not an active workspace. The drawing command will be filtered out
-      // by gks_dl_write_item...
-
-      /* [mutex lock]; */
-      /* printf("quartz> starting inactivity counter for win %d\n", wss->win); */
-      /* wss->inactivity_counter = 0; */
-      /* [mutex unlock]; */
+      if (wss->update_countdown >= 0) {
+        [mutex lock];
+        wss->update_countdown = 4;
+        [mutex unlock];
+      }
       break;
     }
 
@@ -333,3 +331,4 @@ void gks_quartzplugin(
 
   [pool drain];
 }
+// vim: ts=2 sw=2 expandtab

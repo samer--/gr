@@ -16,7 +16,9 @@ typedef struct
     double angle;
     CGRect rect[MAX_TNR];
     pthread_t master_thread;
-    int inactivity_counter;
+    int update_countdown; // -1 means disabled, in deferred update mode
+    int pending_resize;
+    double resize_width, resize_height;
     bool thread_alive;
     bool closed_by_api;
     NSData *displayList;
@@ -26,7 +28,7 @@ ws_state_list;
 @protocol gks_protocol
 - (int) GKSQuartzCreateWindow;
 - (void) GKSQuartzResize: (int) win : (double) width : (double) height;
-- (void) GKSQuartzDraw: (int) win displayList: (id) displayList;
+- (void) GKSQuartzDraw: (int) win displayList: (id) displayList needsDisplay: (bool) needsDisplay;
 - (int) GKSQuartzIsAlive: (int) win;
 - (void) GKSQuartzCloseWindow: (int) win;
 @end

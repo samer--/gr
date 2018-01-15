@@ -1638,7 +1638,7 @@ void update(int workstation_id, int *regenflag)
 
 void gr_updatews(void)
 {
-  int regenflag = GKS_K_PERFORM_FLAG; // double_buf ? GKS_K_PERFORM_FLAG : GKS_K_POSTPONE_FLAG;
+  int regenflag = double_buf ? GKS_K_PERFORM_FLAG : GKS_K_POSTPONE_FLAG;
 
   check_autoinit;
 

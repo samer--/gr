@@ -561,7 +561,6 @@ static void seg_xform_rel(double *x, double *y) { }
 - (void) set_zoom: (NSSize) sz
 {
   double z = min(sz.width/req_width, sz.height/req_height);
-  NSLog(@"settings zoom = %lf", z);
   line_width_factor = z * ppm_y * M_PER_POINT;
 }
 
@@ -599,7 +598,6 @@ static void seg_xform_rel(double *x, double *y) { }
         CGContextTranslateCTM (context, -centerx, -centery);
       }
 
-    NSLog(@"drawRect on win %d: interp", win_id); 
     [self interp: buffer];
     CGContextDrawLayerAtPoint(c, CGPointMake(0, 0), layer);
 
@@ -614,7 +612,7 @@ static void seg_xform_rel(double *x, double *y) { }
   }
 }
 
-- (void) setDisplayList: (id) display_list
+- (void) setDisplayList: (id) display_list : (bool) needsDisplay
 {
   int len = [display_list length];
   if (len + sizeof(int) > size)
@@ -626,8 +624,7 @@ static void seg_xform_rel(double *x, double *y) { }
 
   memcpy(buffer, (char *) [display_list bytes], len);
   memset(buffer + len, 0, sizeof(int));
-
-  [self setNeedsDisplay: YES];
+  if (needsDisplay) [self setNeedsDisplay: YES];
 }
 
 - (void) setWinID: (int)winid { win_id = winid; }
@@ -981,7 +978,7 @@ static void seg_xform_rel(double *x, double *y) { }
           rect.origin.y    += contentSize.height - height;
 
           NSLog(@"Calling setFrame, size = %lf x %lf", width, height);
-          [[self window] setFrame: rect display: NO];
+          [[self window] setFrame: rect display: YES];
         }
     }
 }
@@ -1621,7 +1618,6 @@ void fill_routine(int n, double *px, double *py, int tnr)
 
   /* height = sqrt(width * width + height * height); */
   p->capheight = height * fabs(p->c);
-  /* NSLog(@"char height = %lf, capheight = %lf", height, p->capheight); */
 
   fontsize = p->capheight / capheights[font - 1];
   p->family = font - 1;
