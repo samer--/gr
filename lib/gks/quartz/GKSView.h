@@ -17,7 +17,7 @@ typedef struct {
     int win_id;
     double window[4];
     double angle;
-    double zoom, line_width_factor;
+    double line_width_factor;
     double req_width, req_height; 
     double ppm_x, ppm_y; // pixels per metre
     NSSize screen_size;  // in metres

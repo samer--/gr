@@ -965,7 +965,6 @@ static void seg_xform_rel(double *x, double *y) { }
 
       double width  = (viewport[1] - viewport[0]) * ppm_x;
       double height = (viewport[3] - viewport[2]) * ppm_y;
-      [self set_zoom: NSMakeSize(width, height)];
 
       NSLog(@"current size: %lf x %lf, target size: %lf x %lf", p->width, p->height, width, height);
       if (fabs(p->width - width) > 1e-9 || fabs(p->height - height) > 1e-9)
