@@ -61,7 +61,7 @@ static int update(ws_state_list *wss)
 {
   [wss->displayList initWithBytesNoCopy: wss->dl.buffer length: wss->dl.nbytes freeWhenDone: NO];
   @try {
-    [plugin GKSQuartzDraw: wss->win displayList: wss->displayList needsDisplay: !wss->pending_resize];
+    [plugin GKSQuartzDraw: wss->win displayList: wss->displayList needsDisplay: (BOOL)!wss->pending_resize];
     if (wss->pending_resize) {
       [plugin GKSQuartzResize: wss->win : wss->resize_width : wss->resize_height];
       wss->pending_resize = 0;

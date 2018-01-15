@@ -26,7 +26,7 @@ typedef struct {
     IBOutlet NSPopUpButton *saveFormatPopUp;
     IBOutlet NSSlider *compressionSlider;
 }
-- (void) setDisplayList: (id) display_list : (bool) needsDisplay;
+- (void) setDisplayList: (id) display_list : (BOOL) needsDisplay;
 - (void) close;
 
 - (void) setWinID: (int) winid;

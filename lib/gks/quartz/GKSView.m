@@ -612,7 +612,7 @@ static void seg_xform_rel(double *x, double *y) { }
   }
 }
 
-- (void) setDisplayList: (id) display_list : (bool) needsDisplay
+- (void) setDisplayList: (id) display_list : (BOOL) needsDisplay
 {
   int len = [display_list length];
   if (len + sizeof(int) > size)
@@ -977,10 +977,10 @@ static void seg_xform_rel(double *x, double *y) { }
           rect.size.height += height - contentSize.height;
           rect.origin.y    += contentSize.height - height;
 
-          NSLog(@"Calling setFrame, size = %lf x %lf", width, height);
-          [[self window] setFrame: rect display: YES];
+          [[self window] setFrame: rect display: NO];
         }
     }
+  [self setNeedsDisplay: YES]; // because quartzplugin.m is expecting a redraw
 }
 
 - (void) set_clip_rect: (int) tnr

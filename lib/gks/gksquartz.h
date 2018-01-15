@@ -28,7 +28,7 @@ ws_state_list;
 @protocol gks_protocol
 - (int) GKSQuartzCreateWindow;
 - (void) GKSQuartzResize: (int) win : (double) width : (double) height;
-- (void) GKSQuartzDraw: (int) win displayList: (id) displayList needsDisplay: (bool) needsDisplay;
+- (void) GKSQuartzDraw: (int) win displayList: (id) displayList needsDisplay: (BOOL) needsDisplay;
 - (int) GKSQuartzIsAlive: (int) win;
 - (void) GKSQuartzCloseWindow: (int) win;
 @end
