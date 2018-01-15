@@ -36,7 +36,6 @@ int purge(gks_display_list_t *d, char *t)
       /* 48: setcolorrep, 54: setwswindow, 55: setwsviewport */
       if (fctid == 48 || fctid == 54 || fctid == 55)
         {
-          printf("dl> clearing but keeping function: %d\n", fctid);
           memmove(t + tp, s, len);
           tp += len;
         }
