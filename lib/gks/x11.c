@@ -1,4 +1,10 @@
-
+// TODO:
+//    line width and marker size
+//    requested size and zoom factor
+//    marker rendering (fill?)
+//    font size
+//    window resizing (buffer if deferring update?)
+//    remember ws window
 #include <stdio.h>
 
 #include "gks.h"
@@ -41,6 +47,7 @@ int usleep(useconds_t);
 
 #include <pthread.h>
 
+
 #ifdef XSHM
 #include <X11/extensions/XShm.h>
 #endif
@@ -50,6 +57,7 @@ int usleep(useconds_t);
 #if !defined(NO_X11)
 
 #include "icon.bm"
+#include "marker.h"
 
 #ifndef min
 #define min(a,b)        (((a)<(b)) ? (a) : (b))
@@ -1284,8 +1292,7 @@ void create_pixmap(void)
  */
 
 {
-  if (!p->backing_store || p->gif >= 0 || p->rf >= 0 || p->uil >= 0 ||
-      p->frame || p->double_buf)
+  if (!p->backing_store || p->gif >= 0 || p->rf >= 0 || p->uil >= 0 || p->frame || p->double_buf)
     {
       p->pixmap = XCreatePixmap(p->dpy, XRootWindowOfScreen(p->screen),
                                 p->width, p->height, p->depth);
@@ -1545,10 +1552,8 @@ void configure_event(XConfigureEvent *event)
   p->viewport[2] = (p->sheight - (p->y + height)) * p->resolution;
   p->viewport[3] = p->viewport[2] + height * p->resolution;
 
-  req_aspect_ratio = (p->window[1] - p->window[0]) /
-    (p->window[3] - p->window[2]);
-  cur_aspect_ratio = (p->viewport[1] - p->viewport[0]) /
-    (p->viewport[3] - p->viewport[2]);
+  req_aspect_ratio = (p->window[1] - p->window[0]) / (p->window[3] - p->window[2]);
+  cur_aspect_ratio = (p->viewport[1] - p->viewport[0]) / (p->viewport[3] - p->viewport[2]);
 
   if (width != p->width || height != p->height)
     {
@@ -1560,16 +1565,14 @@ void configure_event(XConfigureEvent *event)
           XFreePixmap(p->dpy, p->pixmap);
           p->pixmap = XCreatePixmap(p->dpy, XRootWindowOfScreen(p->screen),
                                     p->width, p->height, p->depth);
-          XFillRectangle(p->dpy, p->pixmap, p->clear, 0, 0,
-                         p->width, p->height);
+          XFillRectangle(p->dpy, p->pixmap, p->clear, 0, 0, p->width, p->height);
         }
       if (p->drawable)
         {
           XFreePixmap(p->dpy, p->drawable);
           p->drawable = XCreatePixmap(p->dpy, XRootWindowOfScreen(p->screen),
                                       p->width, p->height, p->depth);
-          XFillRectangle(p->dpy, p->drawable, p->clear, 0, 0,
-                         p->width, p->height);
+          XFillRectangle(p->dpy, p->drawable, p->clear, 0, 0, p->width, p->height);
         }
 #ifdef XSHM
       free_shared_memory();
@@ -1597,8 +1600,7 @@ void handle_expose_event(ws_state_list *p)
   if (p->pixmap)
     {
       set_clipping(False);
-      XCopyArea(p->dpy, p->pixmap, p->win, p->gc, 0, 0, p->width, p->height,
-                0, 0);
+      XCopyArea(p->dpy, p->pixmap, p->win, p->gc, 0, 0, p->width, p->height, 0, 0);
       set_clipping(True);
       XSync(p->dpy, False);
     }
@@ -1695,11 +1697,9 @@ void draw_marker(double xn, double yn, int mtype, double mscale)
   XPoint points[16];
   double scale, xr, yr;
 
-#include "marker.h"
-
   if (gksl->version > 4)
-    mscale *= (p->width + p->height) * 0.001;
-  r = (int)(3 * mscale);
+    mscale *= (p->width + p->height) * 0.001; // FIXME: ugh
+  r = (int)(3 * mscale); // FIXME bah
   d = 2 * r;
   scale = 0.01 * mscale / 3.0;
 
@@ -1741,14 +1741,11 @@ void draw_marker(double xn, double yn, int mtype, double mscale)
               points[i].y = nint(y + yr);
             }
           if (p->pixmap)
-            XDrawLines(p->dpy, p->pixmap, p->gc, points, 2,
-                       CoordModeOrigin);
+            XDrawLines(p->dpy, p->pixmap, p->gc, points, 2, CoordModeOrigin);
           if (p->selection)
-            XDrawLines(p->dpy, p->drawable, p->gc, points, 2,
-                       CoordModeOrigin);
+            XDrawLines(p->dpy, p->drawable, p->gc, points, 2, CoordModeOrigin);
           if (!p->double_buf)
-            XDrawLines(p->dpy, p->win, p->gc, points, 2,
-                       CoordModeOrigin);
+            XDrawLines(p->dpy, p->win, p->gc, points, 2, CoordModeOrigin);
           pc += 4;
           break;
 
@@ -1803,7 +1800,7 @@ void draw_marker(double xn, double yn, int mtype, double mscale)
               points[i].x = nint(x - xr);
               points[i].y = nint(y + yr);
             }
-          if (p->pixmap)
+          if (p->pixmap) // FIXME: why XFillPolygon?
             XFillPolygon(p->dpy, p->pixmap, p->clear, points,
                          marker[mtype][pc + 1], Complex, CoordModeOrigin);
           if (p->selection)
@@ -1931,7 +1928,7 @@ void set_line_attr(int linetype, double linewidth)
   int n;
 
   if (gksl->version > 4)
-    linewidth *= (p->width + p->height) * 0.001;
+    linewidth *= (p->width + p->height) * 0.001; // FIXME
   if (linewidth > 1)
     width = (unsigned int)(linewidth + 0.5);
   else
@@ -2155,7 +2152,7 @@ void polymarker(int n, double *px, double *py)
   mk_color = gksl->asf[5] ? gksl->pmcoli : 1;
 
   set_color(mk_color);
-  set_line_attr(GKS_K_LINETYPE_SOLID, 1.0);
+  set_line_attr(GKS_K_LINETYPE_SOLID, 1.0); // !!!! scale line width with marker size?
 
   marker_routine(n, px, py, gksl->cntnr, mk_type, mk_size);
 }
@@ -2184,14 +2181,11 @@ void fill_routine(int n, double *px, double *py, int tnr)
   if (npoints > 1)
     {
       if (p->pixmap)
-        XFillPolygon(p->dpy, p->pixmap, p->gc, points, npoints,
-                     p->shape, CoordModeOrigin);
+        XFillPolygon(p->dpy, p->pixmap, p->gc, points, npoints, p->shape, CoordModeOrigin);
       if (p->selection)
-        XFillPolygon(p->dpy, p->drawable, p->gc, points, npoints,
-                     p->shape, CoordModeOrigin);
+        XFillPolygon(p->dpy, p->drawable, p->gc, points, npoints, p->shape, CoordModeOrigin);
       if (!p->double_buf)
-        XFillPolygon(p->dpy, p->win, p->gc, points, npoints,
-                     p->shape, CoordModeOrigin);
+        XFillPolygon(p->dpy, p->win, p->gc, points, npoints, p->shape, CoordModeOrigin);
     }
 }
 
@@ -2223,8 +2217,7 @@ void fill_area(int n, double *px, double *py)
 
 
 static
-void x_draw_string(
-  Display *display, Drawable d, GC gc, int x, int y, char *string, int length)
+void x_draw_string(Display *display, Drawable d, GC gc, int x, int y, char *string, int length)
 {
 #ifndef NO_XFT
   XftDraw *draw;
@@ -4254,7 +4247,7 @@ void *event_loop(void *arg)
   p->run = 1;
   while (p->run)
     {
-      usleep(10000);
+      usleep(100000);
 
       if (idle && p->run)
         {
@@ -4569,11 +4562,9 @@ void gks_drv_x11(
         }
 
       if (p->pixmap)
-        XFillRectangle(p->dpy, p->pixmap, p->clear, 0, 0, p->width,
-                       p->height);
+        XFillRectangle(p->dpy, p->pixmap, p->clear, 0, 0, p->width, p->height);
       if (p->drawable)
-        XFillRectangle(p->dpy, p->drawable, p->clear, 0, 0, p->width,
-                       p->height);
+        XFillRectangle(p->dpy, p->drawable, p->clear, 0, 0, p->width, p->height);
       if (!p->double_buf)
         XClearWindow(p->dpy, p->win);
 
