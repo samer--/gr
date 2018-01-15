@@ -80,14 +80,15 @@
   return window[win] != nil ? 1 : 0;
 }
 
-- (void) GKSQuartzResize: (int) win : (double) width : (double) height
+- (void) GKSQuartzResizeDraw: (int) win displayList: (id) displayList: (double) width : (double) height
 {
+  [view[win] setDisplayList: displayList : NO];
   [view[win] resize_window: width : height];
 }
 
-- (void) GKSQuartzDraw: (int) win displayList: (id) displayList needsDisplay: (BOOL) needsDisplay
+- (void) GKSQuartzDraw: (int) win displayList: (id) displayList
 {
-  [view[win] setDisplayList: displayList : needsDisplay];
+  [view[win] setDisplayList: displayList : YES];
 }
 
 - (void) GKSQuartzCloseWindow: (int) win

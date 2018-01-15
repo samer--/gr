@@ -57,15 +57,15 @@ static
 NSTask *task = NULL;
 
 
-static int update(ws_state_list *wss) 
+static int update(ws_state_list *wss)
 {
   [wss->displayList initWithBytesNoCopy: wss->dl.buffer length: wss->dl.nbytes freeWhenDone: NO];
   @try {
-    [plugin GKSQuartzDraw: wss->win displayList: wss->displayList needsDisplay: (BOOL)!wss->pending_resize];
     if (wss->pending_resize) {
-      [plugin GKSQuartzResize: wss->win : wss->resize_width : wss->resize_height];
+      [plugin GKSQuartzResizeDraw: wss->win displayList: wss->displayList : wss->resize_width : wss->resize_height];
       wss->pending_resize = 0;
-    }
+    } else
+      [plugin GKSQuartzDraw: wss->win displayList: wss->displayList];
     return 0;
   } @catch (NSException *e) {
     return 1;
