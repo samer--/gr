@@ -1924,12 +1924,7 @@ void set_line_attr(int linetype, double linewidth)
   unsigned int width;
   int n;
 
-  if (gksl->version > 4)
-    linewidth *= (p->width + p->height) * 0.001; // FIXME
-  if (linewidth > 1)
-    width = (unsigned int)(linewidth + 0.5);
-  else
-    width = 0;
+  width = (unsigned int)nint(p->line_width_factor * linewidth);
 
   if (linetype != p->ltype || width != p->lwidth)
     {
