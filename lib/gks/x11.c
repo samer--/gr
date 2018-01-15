@@ -1218,28 +1218,25 @@ void create_window(int win)
 
 
 static
-void set_WM_hints(void)
+void set_WM_hints(int x, int y, int w, int h)
 {
   XSizeHints hints;
   XWMHints wmhints;
 
-  if (p->new_win)
+  hints.flags = PPosition | PSize;
+  hints.x = x;
+  hints.y = y;
+  hints.width = w;
+  hints.height = h;
+
+  XSetWMNormalHints(p->dpy, p->win, &hints);
+
+  if (p->gif >= 0 || p->rf >= 0)
     {
-      hints.flags = PPosition | PSize;
-      hints.x = p->x;
-      hints.y = p->y;
-      hints.width = p->width;
-      hints.height = p->height;
+      wmhints.initial_state = IconicState;
+      wmhints.flags = StateHint;
 
-      XSetWMNormalHints(p->dpy, p->win, &hints);
-
-      if (p->gif >= 0 || p->rf >= 0)
-        {
-          wmhints.initial_state = IconicState;
-          wmhints.flags = StateHint;
-
-          XSetWMHints(p->dpy, p->win, &wmhints);
-        }
+      XSetWMHints(p->dpy, p->win, &wmhints);
     }
 }
 
@@ -4378,7 +4375,7 @@ void gks_drv_x11(
         }
 
       create_window(win);
-      set_WM_hints();
+      if (p->new_win) set_WM_hints(p->x, p->y, p->width, p->height);
       create_GC();
       create_pixmap();
 #ifdef XSHM
