@@ -2866,28 +2866,25 @@ void update(void)
 {
   XEvent event;
 
-  if (p->state == GKS_K_WS_ACTIVE)
+  if (!p->widget && p->wstype != 212 && !p->backing_store)
     {
-      if (!p->widget && p->wstype != 212 && !p->backing_store)
+      while (XPending(p->dpy))
         {
-          while (XPending(p->dpy))
-            {
-              XNextEvent(p->dpy, &event);
-              if (event.type == Expose)
-                expose_event(p->widget, p, (XExposeEvent *) &event, NULL);
-              else if (event.type == ConfigureNotify) {
-                 configure_event((XConfigureEvent *) &event);
-              }
-            }
+          XNextEvent(p->dpy, &event);
+          if (event.type == Expose)
+            expose_event(p->widget, p, (XExposeEvent *) &event, NULL);
+          else if (event.type == ConfigureNotify) {
+             configure_event((XConfigureEvent *) &event);
+          }
         }
-      else
-        {
-          if (!p->new_win)
-            if (XCheckTypedWindowEvent(p->dpy, p->win, ConfigureNotify, &event))
-              configure_viewport((XConfigureEvent *) &event);
+    }
+  else
+    {
+      if (!p->new_win)
+        if (XCheckTypedWindowEvent(p->dpy, p->win, ConfigureNotify, &event))
+          configure_viewport((XConfigureEvent *) &event);
 
-          XSync(p->dpy, False);
-        }
+      XSync(p->dpy, False);
     }
 }
 
@@ -4394,7 +4391,6 @@ void gks_drv_x11(
 
       create_cursor();
 
-      p->state = GKS_K_WS_INACTIVE;
       p->mapped = False;
 
       p->ltype = GKS_K_LINETYPE_SOLID;
@@ -4465,6 +4461,7 @@ void gks_drv_x11(
               pthread_attr_destroy(&p->attr);
             }
         }
+      map_window();
       break;
 
     case 3:
@@ -4529,18 +4526,8 @@ void gks_drv_x11(
       free(p);
       return;
 
-    case 4:
-/*
- *  Activate workstation
- */
-      p->state = GKS_K_WS_ACTIVE;
-      break;
-
-    case 5:
-/*
- *  Deactivate workstation
- */
-      p->state = GKS_K_WS_INACTIVE;
+    case 4: // activate
+    case 5: // deactivate
       break;
 
     case 6:
@@ -4584,16 +4571,11 @@ void gks_drv_x11(
         handle_expose_event(p);
 
       update();
-
-      if (p->state == GKS_K_WS_ACTIVE)
+      if (p->error)
         {
-          if (p->error)
-            {
-              gks_perror(p->error);
-              p->error = NULL;
-            }
+          gks_perror(p->error);
+          p->error = NULL;
         }
-      unlock();
       break;
 
     case 10:
@@ -4601,11 +4583,7 @@ void gks_drv_x11(
  *  Message
  */
       lock();
-      if (!p->mapped)
-        map_window();
-
-      if (p->state == GKS_K_WS_ACTIVE)
-        message(strlen(chars), chars);
+      message(strlen(chars), chars);
       unlock();
       break;
 
@@ -4614,13 +4592,7 @@ void gks_drv_x11(
  *  Polyline
  */
       lock();
-      if (!p->mapped)
-        map_window();
-
-      if (p->state == GKS_K_WS_ACTIVE)
-        {
-          polyline(*ia, r1, r2);
-        }
+      polyline(*ia, r1, r2);
       unlock();
       break;
 
@@ -4629,13 +4601,7 @@ void gks_drv_x11(
  *  Polymarker
  */
       lock();
-      if (!p->mapped)
-        map_window();
-
-      if (p->state == GKS_K_WS_ACTIVE)
-        {
-          polymarker(*ia, r1, r2);
-        }
+      polymarker(*ia, r1, r2);
       unlock();
       break;
 
@@ -4644,13 +4610,7 @@ void gks_drv_x11(
  *  Text
  */
       lock();
-      if (!p->mapped)
-        map_window();
-
-      if (p->state == GKS_K_WS_ACTIVE)
-        {
-          text(*r1, *r2, strlen(chars), chars);
-        }
+      text(*r1, *r2, strlen(chars), chars);
       unlock();
       break;
 
@@ -4659,13 +4619,7 @@ void gks_drv_x11(
  *  Fill Area
  */
       lock();
-      if (!p->mapped)
-        map_window();
-
-      if (p->state == GKS_K_WS_ACTIVE)
-        {
-          fill_area(*ia, r1, r2);
-        }
+      fill_area(*ia, r1, r2);
       unlock();
       break;
 
@@ -4675,15 +4629,7 @@ void gks_drv_x11(
  *  Cell Array
  */
       lock();
-      if (!p->mapped)
-        map_window();
-
-      if (p->state == GKS_K_WS_ACTIVE)
-        {
-          int true_color = function_id == DRAW_IMAGE;
-
-          cell_array(r1[0], r1[1], r2[0], r2[1], dx, dy, dimx, ia, true_color);
-        }
+      cell_array(r1[0], r1[1], r2[0], r2[1], dx, dy, dimx, ia, function_id==DRAW_IMAGE);
       unlock();
       break;
 
@@ -4816,9 +4762,6 @@ void gks_drv_x11(
         int n;
 
         lock();
-        if (!p->mapped)
-          map_window();
-
         n = 1;
         get_pointer(&n, r1, r2, &ia[0], &ia[3]);
         unlock();
@@ -4830,9 +4773,6 @@ void gks_drv_x11(
  *  Request stroke
  */
       lock();
-      if (!p->mapped)
-        map_window();
-
       get_pointer(&ia[2], r1, r2, &ia[0], &ia[3]);
       unlock();
       break;
@@ -4842,8 +4782,6 @@ void gks_drv_x11(
  *  Request string
  */
       lock();
-      if (!p->mapped)
-        map_window();
       get_string(&ia[1], chars, &ia[0]);
       unlock();
       break;
