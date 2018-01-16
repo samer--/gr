@@ -4582,6 +4582,7 @@ void gks_drv_x11(
           gks_perror(p->error);
           p->error = NULL;
         }
+      unlock();
       break;
 
     case 10:
