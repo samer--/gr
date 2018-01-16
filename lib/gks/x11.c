@@ -1,8 +1,5 @@
 // TODO:
-//    marker size
-//    marker rendering (fill?)
-//    font size
-//    defer window resizing?
+//    text color 
 #include <stdio.h>
 
 #include "gks.h"
@@ -1715,18 +1712,11 @@ void init_norm_xform(void)
 
 
 static
-void draw_marker(double xn, double yn, int mindex, double mscale)
+void draw_marker(double xn, double yn, int mindex, double r)
 {
-  double scale = mscale/1000, r, x, y;
-  int i, pc, op, x1, x0, x2, y1, y0, y2, d;
+  double scale = r/1000, x, y;
+  int i, pc, op, x1, x0, x2, y1, y0, y2, d = sint(r*2);
   XPoint points[16];
-
-  {
-    double xr=mscale, yr=0;
-    seg_xform_rel(&xr, &yr);
-    r = sqrt(xr * xr + yr * yr);
-    d = sint(2*r);
-  }
 
   NDC_to_DC_FP(xn, yn, x, y);
   x1 = sint(x-r); x2 = sint(x+r);
@@ -1770,6 +1760,7 @@ void draw_marker(double xn, double yn, int mindex, double mscale)
           break;
 
         case 3:         /* polygon */
+        case 5:         /* hollow polygon */
           for (i = 0; i < marker[mindex][pc + 1]; i++)
             {
               double xr = scale * marker[mindex][pc + 2 + 2 * i];
@@ -1811,28 +1802,8 @@ void draw_marker(double xn, double yn, int mindex, double mscale)
           pc += 1 + 2 * marker[mindex][pc + 1];
           break;
 
-        case 5:         /* hollow polygon */
-          for (i = 0; i < marker[mindex][pc + 1]; i++)
-            {
-              double xr = scale * marker[mindex][pc + 2 + 2 * i];
-              double yr = -scale * marker[mindex][pc + 3 + 2 * i];
-              seg_xform_rel(&xr, &yr);
-              points[i].x = sint(x - xr);
-              points[i].y = sint(y + yr);
-            }
-          if (p->pixmap) // FIXME: why XFillPolygon?
-            XFillPolygon(p->dpy, p->pixmap, p->clear, points,
-                         marker[mindex][pc + 1], Complex, CoordModeOrigin);
-          if (p->selection)
-            XFillPolygon(p->dpy, p->drawable, p->clear, points,
-                         marker[mindex][pc + 1], Complex, CoordModeOrigin);
-          if (!p->double_buf)
-            XFillPolygon(p->dpy, p->win, p->clear, points,
-                         marker[mindex][pc + 1], Complex, CoordModeOrigin);
-          pc += 1 + 2 * marker[mindex][pc + 1];
-          break;
-
         case 6:         /* arc */
+        case 8:         /* hollow #arc */
           if (p->pixmap)
             XDrawArc(p->dpy, p->pixmap, p->gc, x1, y1, d, d, 0, 360 * 64);
           if (p->selection)
@@ -1848,15 +1819,6 @@ void draw_marker(double xn, double yn, int mindex, double mscale)
             XFillArc(p->dpy, p->drawable, p->gc, x1, y2, d, d, 0, 360 * 64);
           if (!p->double_buf)
             XFillArc(p->dpy, p->win, p->gc, x1, y1, d, d, 0, 360 * 64);
-          break;
-
-        case 8:         /* hollow arc */
-          if (p->pixmap)
-            XFillArc(p->dpy, p->pixmap, p->clear, x1, y1, d, d, 0, 360 * 64);
-          if (p->selection)
-            XFillArc(p->dpy, p->drawable, p->clear, x1, y1, d, d, 0, 360 *64);
-          if (!p->double_buf)
-            XFillArc(p->dpy, p->win, p->clear, x1, y1, d, d, 0, 360 * 64);
           break;
         }
       pc++;
@@ -2078,38 +2040,42 @@ void polyline(int n, double *px, double *py)
 static
 void polymarker(int n, double *px, double *py)
 {
+  int tnr      = gksl->cntnr;
   int mk_type  = gksl->asf[3] ? gksl->mtype : gksl->mindex;
   int mk_color = gksl->asf[5] ? gksl->pmcoli : 1;
-  int tnr      = gksl->cntnr;
+  double mk_size = gksl->asf[4] ? gksl->mszsc : 1;
+  double radius;
+
+  {
+    double xr=p->line_width_factor * mk_size/2, yr=0;
+    seg_xform_rel(&xr, &yr);
+    radius = sqrt(xr * xr + yr * yr);
+  }
 
   set_color(mk_color);
 
-  if (gksl->clip == GKS_K_CLIP || mk_type != GKS_K_MARKERTYPE_DOT) // FIXME ??
+  if (mk_type != GKS_K_MARKERTYPE_DOT && radius > 0.75)
     {
-      double c[4]; // clipping region
-      double mk_size = gksl->asf[4] ? gksl->mszsc : 1;
-      double scale = p->line_width_factor * mk_size/2;
-      double x, y;
-      int    i, xd, yd, mindex = mtype + marker_off;
+      double C[4], x, y;
+      int    i, xd, yd, mindex = mk_type + marker_off;
 
       set_line_attr(GKS_K_LINETYPE_SOLID, mk_size/8); 
       if (gksl->clip == GKS_K_CLIP)
         {
-          memmove(c, gksl->viewport[tnr], 4 * sizeof(double));
-          seg_xform(&c[0], &c[2]);
-          seg_xform(&c[1], &c[3]);
+          memmove(C, gksl->viewport[tnr], 4 * sizeof(double));
+          seg_xform(&C[0], &C[2]);
+          seg_xform(&C[1], &C[3]);
         }
-      set_clipping(False);
+
       for (i = 0; i < n; i++)
         {
           WC_to_NDC(px[i], py[i], tnr, x, y);
           seg_xform(&x, &y);
           NDC_to_DC(x, y, xd, yd); // for bounding box?
 
-          if (gksl->clip != GKS_K_CLIP || (x >= c[0] && x <= c[1] && y >= c[2] && y <= c[3]))
-            draw_marker(x, y, mindex, scale);
+          if (gksl->clip != GKS_K_CLIP || (x >= C[0] && x <= C[1] && y >= C[2] && y <= C[3]))
+            draw_marker(x, y, mindex, radius);
         }
-      set_clipping(True);
     }
   else
     {
@@ -2801,12 +2767,10 @@ void ft_text_routine(double px, double py, int nchars, char *chars)
 static
 void text(double px, double py, int nchars, char *chars)
 {
-  int tx_font, tx_prec, tx_color;
+  int tx_font = gksl->asf[6] ? gksl->txfont : predef_font[gksl->tindex - 1];
+  int tx_prec = gksl->asf[6] ? gksl->txprec : predef_prec[gksl->tindex - 1];
+  int tx_color = gksl->asf[9] ? gksl->txcoli : 1;
   double x, y;
-
-  tx_font = gksl->asf[6] ? gksl->txfont : predef_font[gksl->tindex - 1];
-  tx_prec = gksl->asf[6] ? gksl->txprec : predef_prec[gksl->tindex - 1];
-  tx_color = gksl->asf[9] ? gksl->txcoli : 1;
 
 #if !defined(NO_XFT) || defined(NO_FT)
   if (tx_prec != GKS_K_TEXT_PRECISION_STROKE)
