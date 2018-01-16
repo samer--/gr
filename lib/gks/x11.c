@@ -99,9 +99,9 @@ int usleep(useconds_t);
 #define GIF_MPP (0.0254/100) // metres per pixel for GIF output (100 DPI)
 #define M_PER_POINT (0.0254/72)
 
-#define PREALLOC_POINTS(n) \\
-    if (n > max_points) { \\
-        points = (XPoint *) realloc(points, n * sizeof(XPoint)); \\
+#define PREALLOC_POINTS(n) \
+    if (n > max_points) { \
+        points = (XPoint *) realloc(points, n * sizeof(XPoint)); \
         max_points = n; }
 
 #define WC_to_NDC(xw, yw, tnr, xn, yn) \
@@ -120,6 +120,10 @@ int usleep(useconds_t);
     xd = sint(p->a * (xn) + p->b); \
     yd = sint(p->c * (yn) + p->d); \
     update_bbox(xd, yd)
+
+#define NDC_to_DC_FP(xn, yn, xd, yd) \
+    xd = p->a * (xn) + p->b; \
+    yd = p->c * (yn) + p->d
 
 #define DC_to_NDC(xd, yd, xn, yn) \
     xn = ((xd) - p->b) / p->a; \
@@ -1711,55 +1715,50 @@ void init_norm_xform(void)
 
 
 static
-void draw_marker(double xn, double yn, int mtype, double mscale)
+void draw_marker(double xn, double yn, int mindex, double mscale)
 {
-  int r, d, x, y, i;
-  int pc, op;
+  double scale = mscale/1000, r, x, y;
+  int i, pc, op, x1, x0, x2, y1, y0, y2, d;
   XPoint points[16];
-  double scale, xr, yr;
 
-  if (gksl->version > 4)
-    mscale *= (p->width + p->height) * 0.001; // FIXME: ugh
-  r = (int)(3 * mscale); // FIXME bah
-  d = 2 * r;
-  scale = 0.01 * mscale / 3.0;
+  {
+    double xr=mscale, yr=0;
+    seg_xform_rel(&xr, &yr);
+    r = sqrt(xr * xr + yr * yr);
+    d = sint(2*r);
+  }
 
-  xr = r;
-  yr = 0;
-  seg_xform_rel(&xr, &yr);
-  r = nint(sqrt(xr * xr + yr * yr));
-
-  NDC_to_DC(xn, yn, x, y);
-
-  update_bbox(x - r, y - r);
-  update_bbox(x + r, y + r);
+  NDC_to_DC_FP(xn, yn, x, y);
+  x1 = sint(x-r); x2 = sint(x+r);
+  y1 = sint(y-r); y2 = sint(y+r); 
+  update_bbox(x1, x2);
+  update_bbox(y1, y2);
 
   pc = 0;
-  mtype = (d > 1) ? mtype + marker_off : marker_off + 1;
-
   do
     {
-      op = marker[mtype][pc];
+      op = marker[mindex][pc];
       switch (op)
         {
 
         case 1:         /* point */
+          x0 = sint(x); y0 = sint(y);
           if (p->pixmap)
-            XDrawPoint(p->dpy, p->pixmap, p->gc, x, y);
+            XDrawPoint(p->dpy, p->pixmap, p->gc, x0, y0);
           if (p->selection)
-            XDrawPoint(p->dpy, p->drawable, p->gc, x, y);
+            XDrawPoint(p->dpy, p->drawable, p->gc, x0, y0);
           if (!p->double_buf)
-            XDrawPoint(p->dpy, p->win, p->gc, x, y);
+            XDrawPoint(p->dpy, p->win, p->gc, x0, y0);
           break;
 
         case 2:         /* line */
           for (i = 0; i < 2; i++)
             {
-              double xr = scale * marker[mtype][pc + 2 * i + 1];
-              double yr = -scale * marker[mtype][pc + 2 * i + 2];
+              double xr = scale * marker[mindex][pc + 2 * i + 1];
+              double yr = -scale * marker[mindex][pc + 2 * i + 2];
               seg_xform_rel(&xr, &yr);
-              points[i].x = nint(x - xr);
-              points[i].y = nint(y + yr);
+              points[i].x = sint(x - xr);
+              points[i].y = sint(y + yr);
             }
           if (p->pixmap)
             XDrawLines(p->dpy, p->pixmap, p->gc, points, 2, CoordModeOrigin);
@@ -1771,171 +1770,98 @@ void draw_marker(double xn, double yn, int mtype, double mscale)
           break;
 
         case 3:         /* polygon */
-          for (i = 0; i < marker[mtype][pc + 1]; i++)
+          for (i = 0; i < marker[mindex][pc + 1]; i++)
             {
-              double xr = scale * marker[mtype][pc + 2 + 2 * i];
-              double yr = -scale * marker[mtype][pc + 3 + 2 * i];
+              double xr = scale * marker[mindex][pc + 2 + 2 * i];
+              double yr = -scale * marker[mindex][pc + 3 + 2 * i];
               seg_xform_rel(&xr, &yr);
-              points[i].x = nint(x - xr);
-              points[i].y = nint(y + yr);
+              points[i].x = sint(x - xr);
+              points[i].y = sint(y + yr);
             }
           if (p->pixmap)
             XDrawLines(p->dpy, p->pixmap, p->gc, points,
-                       marker[mtype][pc + 1], CoordModeOrigin);
+                       marker[mindex][pc + 1], CoordModeOrigin);
           if (p->selection)
             XDrawLines(p->dpy, p->drawable, p->gc, points,
-                       marker[mtype][pc + 1], CoordModeOrigin);
+                       marker[mindex][pc + 1], CoordModeOrigin);
           if (!p->double_buf)
             XDrawLines(p->dpy, p->win, p->gc, points,
-                       marker[mtype][pc + 1], CoordModeOrigin);
-          pc += 1 + 2 * marker[mtype][pc + 1];
+                       marker[mindex][pc + 1], CoordModeOrigin);
+          pc += 1 + 2 * marker[mindex][pc + 1];
           break;
 
         case 4:         /* filled polygon */
-          for (i = 0; i < marker[mtype][pc + 1]; i++)
+          for (i = 0; i < marker[mindex][pc + 1]; i++)
             {
-              double xr = scale * marker[mtype][pc + 2 + 2 * i];
-              double yr = -scale * marker[mtype][pc + 3 + 2 * i];
+              double xr = scale * marker[mindex][pc + 2 + 2 * i];
+              double yr = -scale * marker[mindex][pc + 3 + 2 * i];
               seg_xform_rel(&xr, &yr);
-              points[i].x = nint(x - xr);
-              points[i].y = nint(y + yr);
+              points[i].x = sint(x - xr);
+              points[i].y = sint(y + yr);
             }
           if (p->pixmap)
             XFillPolygon(p->dpy, p->pixmap, p->gc, points,
-                         marker[mtype][pc + 1], Complex, CoordModeOrigin);
+                         marker[mindex][pc + 1], Complex, CoordModeOrigin);
           if (p->selection)
             XFillPolygon(p->dpy, p->drawable, p->gc, points,
-                         marker[mtype][pc + 1], Complex, CoordModeOrigin);
+                         marker[mindex][pc + 1], Complex, CoordModeOrigin);
           if (!p->double_buf)
             XFillPolygon(p->dpy, p->win, p->gc, points,
-                         marker[mtype][pc + 1], Complex, CoordModeOrigin);
-          pc += 1 + 2 * marker[mtype][pc + 1];
+                         marker[mindex][pc + 1], Complex, CoordModeOrigin);
+          pc += 1 + 2 * marker[mindex][pc + 1];
           break;
 
         case 5:         /* hollow polygon */
-          for (i = 0; i < marker[mtype][pc + 1]; i++)
+          for (i = 0; i < marker[mindex][pc + 1]; i++)
             {
-              double xr = scale * marker[mtype][pc + 2 + 2 * i];
-              double yr = -scale * marker[mtype][pc + 3 + 2 * i];
+              double xr = scale * marker[mindex][pc + 2 + 2 * i];
+              double yr = -scale * marker[mindex][pc + 3 + 2 * i];
               seg_xform_rel(&xr, &yr);
-              points[i].x = nint(x - xr);
-              points[i].y = nint(y + yr);
+              points[i].x = sint(x - xr);
+              points[i].y = sint(y + yr);
             }
           if (p->pixmap) // FIXME: why XFillPolygon?
             XFillPolygon(p->dpy, p->pixmap, p->clear, points,
-                         marker[mtype][pc + 1], Complex, CoordModeOrigin);
+                         marker[mindex][pc + 1], Complex, CoordModeOrigin);
           if (p->selection)
             XFillPolygon(p->dpy, p->drawable, p->clear, points,
-                         marker[mtype][pc + 1], Complex, CoordModeOrigin);
+                         marker[mindex][pc + 1], Complex, CoordModeOrigin);
           if (!p->double_buf)
             XFillPolygon(p->dpy, p->win, p->clear, points,
-                         marker[mtype][pc + 1], Complex, CoordModeOrigin);
-          pc += 1 + 2 * marker[mtype][pc + 1];
+                         marker[mindex][pc + 1], Complex, CoordModeOrigin);
+          pc += 1 + 2 * marker[mindex][pc + 1];
           break;
 
         case 6:         /* arc */
           if (p->pixmap)
-            XDrawArc(p->dpy, p->pixmap, p->gc, x - r, y - r, d, d,
-                     0, 360 * 64);
+            XDrawArc(p->dpy, p->pixmap, p->gc, x1, y1, d, d, 0, 360 * 64);
           if (p->selection)
-            XDrawArc(p->dpy, p->drawable, p->gc, x - r, y - r, d, d,
-                     0, 360 * 64);
+            XDrawArc(p->dpy, p->drawable, p->gc, x1, y1, d, d, 0, 360 * 64);
           if (!p->double_buf)
-            XDrawArc(p->dpy, p->win, p->gc, x - r, y - r, d, d, 0, 360 * 64);
+            XDrawArc(p->dpy, p->win, p->gc, x1, y1, d, d, 0, 360 * 64);
           break;
 
         case 7:         /* filled arc */
           if (p->pixmap)
-            XFillArc(p->dpy, p->pixmap, p->gc, x - r, y - r, d, d,
-                     0, 360 * 64);
+            XFillArc(p->dpy, p->pixmap, p->gc, x1, y1, d, d, 0, 360 * 64);
           if (p->selection)
-            XFillArc(p->dpy, p->drawable, p->gc, x - r, y - r, d, d,
-                     0, 360 * 64);
+            XFillArc(p->dpy, p->drawable, p->gc, x1, y2, d, d, 0, 360 * 64);
           if (!p->double_buf)
-            XFillArc(p->dpy, p->win, p->gc, x - r, y - r, d, d, 0, 360 * 64);
+            XFillArc(p->dpy, p->win, p->gc, x1, y1, d, d, 0, 360 * 64);
           break;
 
         case 8:         /* hollow arc */
           if (p->pixmap)
-            XFillArc(p->dpy, p->pixmap, p->clear, x - r, y - r, d, d,
-                     0, 360 * 64);
+            XFillArc(p->dpy, p->pixmap, p->clear, x1, y1, d, d, 0, 360 * 64);
           if (p->selection)
-            XFillArc(p->dpy, p->drawable, p->clear, x - r, y - r, d, d,
-                     0, 360 *64);
+            XFillArc(p->dpy, p->drawable, p->clear, x1, y1, d, d, 0, 360 *64);
           if (!p->double_buf)
-            XFillArc(p->dpy, p->win, p->clear, x - r, y - r, d, d, 0, 360 * 64);
+            XFillArc(p->dpy, p->win, p->clear, x1, y1, d, d, 0, 360 * 64);
           break;
         }
       pc++;
     }
   while (op != 0);
-}
-
-
-static
-void draw_points(int n, double *px, double *py, int tnr)
-{
-  int i;
-  double xn, yn;
-
-  if (n > max_points)
-    {
-      points = (XPoint *) realloc(points, n * sizeof(XPoint));
-      max_points = n;
-    }
-
-  for (i = 0; i < n; i++)
-    {
-      WC_to_NDC(px[i], py[i], tnr, xn, yn);
-      seg_xform(&xn, &yn);
-      NDC_to_DC(xn, yn, points[i].x, points[i].y);
-    }
-
-  if (p->pixmap)
-    XDrawPoints(p->dpy, p->pixmap, p->gc, points, n, CoordModeOrigin);
-  if (p->selection)
-    XDrawPoints(p->dpy, p->drawable, p->gc, points, n, CoordModeOrigin);
-  if (!p->double_buf)
-    XDrawPoints(p->dpy, p->win, p->gc, points, n, CoordModeOrigin);
-}
-
-
-static
-void marker_routine(
-  int n, double *px, double *py, int tnr, int mtype, double mscale)
-{
-  double clrt[4] = {0, 1, 0, 1};
-  double x, y;
-  int i, xd, yd;
-  Bool draw;
-
-  if (gksl->clip == GKS_K_CLIP || mtype != GKS_K_MARKERTYPE_DOT)
-    {
-      if (gksl->clip == GKS_K_CLIP)
-        {
-          memmove(clrt, gksl->viewport[gksl->cntnr], 4 * sizeof(double));
-          seg_xform(&clrt[0], &clrt[2]);
-          seg_xform(&clrt[1], &clrt[3]);
-        }
-      set_clipping(False);
-      for (i = 0; i < n; i++)
-        {
-          WC_to_NDC(px[i], py[i], tnr, x, y);
-          seg_xform(&x, &y);
-          NDC_to_DC(x, y, xd, yd);
-
-          if (gksl->clip == GKS_K_CLIP)
-            draw = x >= clrt[0] && x <= clrt[1] && y >= clrt[2] && y <= clrt[3];
-          else
-            draw = True;
-
-          if (draw)
-            draw_marker(x, y, mtype, mscale);
-        }
-      set_clipping(True);
-    }
-  else
-    draw_points(n, px, py, tnr);
 }
 
 
@@ -2152,17 +2078,59 @@ void polyline(int n, double *px, double *py)
 static
 void polymarker(int n, double *px, double *py)
 {
-  int mk_type, mk_color;
-  double mk_size;
-
-  mk_type = gksl->asf[3] ? gksl->mtype : gksl->mindex;
-  mk_size = gksl->asf[4] ? gksl->mszsc : 1;
-  mk_color = gksl->asf[5] ? gksl->pmcoli : 1;
+  int mk_type  = gksl->asf[3] ? gksl->mtype : gksl->mindex;
+  int mk_color = gksl->asf[5] ? gksl->pmcoli : 1;
+  int tnr      = gksl->cntnr;
 
   set_color(mk_color);
-  set_line_attr(GKS_K_LINETYPE_SOLID, 1.0); // !!!! scale line width with marker size?
 
-  marker_routine(n, px, py, gksl->cntnr, mk_type, mk_size);
+  if (gksl->clip == GKS_K_CLIP || mk_type != GKS_K_MARKERTYPE_DOT) // FIXME ??
+    {
+      double c[4]; // clipping region
+      double mk_size = gksl->asf[4] ? gksl->mszsc : 1;
+      double scale = p->line_width_factor * mk_size/2;
+      double x, y;
+      int    i, xd, yd, mindex = mtype + marker_off;
+
+      set_line_attr(GKS_K_LINETYPE_SOLID, mk_size/8); 
+      if (gksl->clip == GKS_K_CLIP)
+        {
+          memmove(c, gksl->viewport[tnr], 4 * sizeof(double));
+          seg_xform(&c[0], &c[2]);
+          seg_xform(&c[1], &c[3]);
+        }
+      set_clipping(False);
+      for (i = 0; i < n; i++)
+        {
+          WC_to_NDC(px[i], py[i], tnr, x, y);
+          seg_xform(&x, &y);
+          NDC_to_DC(x, y, xd, yd); // for bounding box?
+
+          if (gksl->clip != GKS_K_CLIP || (x >= c[0] && x <= c[1] && y >= c[2] && y <= c[3]))
+            draw_marker(x, y, mindex, scale);
+        }
+      set_clipping(True);
+    }
+  else
+    {
+      int i;
+      double xn, yn;
+
+      PREALLOC_POINTS(n);
+      for (i = 0; i < n; i++)
+        {
+          WC_to_NDC(px[i], py[i], tnr, xn, yn);
+          seg_xform(&xn, &yn);
+          NDC_to_DC(xn, yn, points[i].x, points[i].y);
+        }
+
+      if (p->pixmap)
+        XDrawPoints(p->dpy, p->pixmap, p->gc, points, n, CoordModeOrigin);
+      if (p->selection)
+        XDrawPoints(p->dpy, p->drawable, p->gc, points, n, CoordModeOrigin);
+      if (!p->double_buf)
+        XDrawPoints(p->dpy, p->win, p->gc, points, n, CoordModeOrigin);
+    }
 }
 
 
