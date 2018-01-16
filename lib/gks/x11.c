@@ -98,6 +98,9 @@ int usleep(useconds_t);
 #define CTRL_D 4
 #define CTRL_Z 26
 
+#define GIF_MPP (0.0254/100) // metres per pixel for GIF output (100 DPI)
+#define M_PER_POINT (0.0254/72)
+
 #define WC_to_NDC(xw, yw, tnr, xn, yn) \
     xn = a[tnr] * (xw) + b[tnr]; \
     yn = c[tnr] * (yw) + d[tnr]
@@ -353,10 +356,13 @@ typedef struct ws_state_list_struct
     long event_mask;
     Cursor cursor, textcursor;
     int swidth, sheight, dpi, x, y, width, height;
+    int req_width, req_height;
     int selection, bb_update, num_bb, max_bb;
     Segment *bb, *bbox, bounding_box;
-    double mwidth, mheight, resolution, magnification, window[4], viewport[4];
-    int state, mapped;
+    double mwidth, mheight, magnification, window[4], viewport[4];
+    double ppm_x, ppm_y;
+    double line_width_factor;
+    int mapped;
     Bool empty;
     int path;
 #if !defined(NO_XFT) || defined(NO_FT)
@@ -577,6 +583,13 @@ void seg_xform_rel(double *x, double *y)
   xx = *x * gksl->mat[0][0] + *y * gksl->mat[0][1];
   *y = *x * gksl->mat[1][0] + *y * gksl->mat[1][1];
   *x = xx;
+}
+
+static void set_zoom(ws_state_list *p, double width, double height)
+{
+  double z = min(width/p->req_width, height/p->req_height);
+  printf("x11> zoom = %lf\n", z);
+  p->line_width_factor = z * p->ppm_y * M_PER_POINT;
 }
 
 
@@ -813,8 +826,8 @@ Display *open_display(void)
   p->mheight = XHeightMMOfScreen(p->screen) * 0.001;
   p->swidth = XWidthOfScreen(p->screen);
   p->sheight = XHeightOfScreen(p->screen);
-  p->resolution = 0.5 * (p->mwidth / p->swidth + p->mheight / p->sheight);
-
+  p->ppm_x = p->swidth / p->mwidth;
+  p->ppm_y = p->sheight / p->mheight;
   p->magnification = 1;
 
   if ((env = (char *) gks_getenv("GKS_DPI")) != NULL)
@@ -822,7 +835,7 @@ Display *open_display(void)
   else
     {
 #if 0
-      double dpi = 0.0254 / p->resolution;
+      double dpi = 0.0254 * sqrt(p->ppm_x * p->ppm_y);
 
       if (fabs(dpi - 75) < fabs(100 - dpi))
         p->dpi = 75;
@@ -1087,9 +1100,9 @@ void configure_viewport(XConfigureEvent *event)
       create_shared_memory();
 #endif
       p->viewport[0] = 0;
-      p->viewport[1] = p->width * p->resolution;
+      p->viewport[1] = p->width / p->ppm_x;
       p->viewport[2] = 0;
-      p->viewport[3] = p->height * p->resolution;
+      p->viewport[3] = p->height / p->ppm_y;
 
       p->window[0] = p->window[2] = 0;
       if (p->viewport[1] > p->viewport[3])
@@ -1154,6 +1167,9 @@ void create_window(int win)
             p->magnification = pow(1.2, atof(env));
 
           p->width = p->height = (int)(500 * p->magnification);
+          p->req_width = 500;
+          p->req_height = 500;
+          set_zoom(p, p->width, p->height);
         }
       else
         p->width = p->height = 16;
@@ -1543,11 +1559,12 @@ void configure_event(XConfigureEvent *event)
 
   width = event->width;
   height = event->height;
+  set_zoom(p, width, height);
 
-  p->viewport[0] = p->x * p->resolution;
-  p->viewport[1] = p->viewport[0] + width * p->resolution;
-  p->viewport[2] = (p->sheight - (p->y + height)) * p->resolution;
-  p->viewport[3] = p->viewport[2] + height * p->resolution;
+  p->viewport[0] = p->x / (p->magnification * p->ppm_x);
+  p->viewport[1] = (p->x + width) / (p->magnification * p->ppm_x);
+  p->viewport[2] = (p->sheight - (p->y + height)) / (p->magnification * p->ppm_y);
+  p->viewport[3] = (p->sheight - p->y) / (p->magnification * p->ppm_y);
 
   req_aspect_ratio = (p->window[1] - p->window[0]) / (p->window[3] - p->window[2]);
   cur_aspect_ratio = (p->viewport[1] - p->viewport[0]) / (p->viewport[3] - p->viewport[2]);
@@ -3739,10 +3756,8 @@ void resize_window(void)
 
   if (p->uil < 0)
     {
-      width = nint((p->viewport[1] - p->viewport[0]) / p->resolution *
-                   p->magnification);
-      height = nint((p->viewport[3] - p->viewport[2]) / p->resolution *
-                    p->magnification);
+      width = nint((p->viewport[1] - p->viewport[0]) * p->ppm_x * p->magnification);
+      height = nint((p->viewport[3] - p->viewport[2]) * p->ppm_y * p->magnification);
     }
   else
     {
@@ -4277,6 +4292,7 @@ void gks_drv_x11(
   idle = False;
 
   p = (ws_state_list *) *ptr;
+  printf("x11> command %d\n", fctid);
 
   switch (function_id = fctid)
     {
@@ -4389,9 +4405,9 @@ void gks_drv_x11(
       /* Setup default device transformation */
 
       p->viewport[0] = 0;
-      p->viewport[1] = p->width * p->resolution;
+      p->viewport[1] = p->width / (p->magnification * p->ppm_x);
       p->viewport[2] = 0;
-      p->viewport[3] = p->height * p->resolution;
+      p->viewport[3] = p->height / (p->magnification * p->ppm_y);
 
       p->window[0] = p->window[2] = 0;
       if (p->viewport[1] > p->viewport[3])
@@ -4704,8 +4720,8 @@ void gks_drv_x11(
 
         if (p->gif >= 0 || p->rf >= 0)
           {
-            max_width = p->resolution * 1280;
-            max_height = p->resolution * 1024;
+            max_width = 1280 * GIF_MPP;
+            max_height = 1024 * GIF_MPP;
           }
         else if (p->new_win)
           {
@@ -4721,7 +4737,7 @@ void gks_drv_x11(
           gks_fit_ws_viewport(p->viewport, max_width, max_height, 0.0075);
 
         resize_window();
-        set_WM_hints();
+        set_WM_hints(p->x, p->y, p->width, p->height);
         if (!p->mapped)
           map_window();
 
