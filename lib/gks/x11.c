@@ -99,6 +99,11 @@ int usleep(useconds_t);
 #define GIF_MPP (0.0254/100) // metres per pixel for GIF output (100 DPI)
 #define M_PER_POINT (0.0254/72)
 
+#define PREALLOC_POINTS(n) \\
+    if (n > max_points) { \\
+        points = (XPoint *) realloc(points, n * sizeof(XPoint)); \\
+        max_points = n; }
+
 #define WC_to_NDC(xw, yw, tnr, xn, yn) \
     xn = a[tnr] * (xw) + b[tnr]; \
     yn = c[tnr] * (yw) + d[tnr]
@@ -2040,7 +2045,6 @@ void clip_line(int *x0, int *x1, int *y0, int *y1, Bool *visible, Bool *clip)
   *visible = True;
 }
 
-
 static
 void line_routine(int n, double *px, double *py, int linetype, int tnr)
 {
@@ -2049,12 +2053,7 @@ void line_routine(int n, double *px, double *py, int linetype, int tnr)
   int ix0, iy0, ix1, iy1, x, y;
   Bool visible, clip;
 
-  if (n > max_points)
-    {
-      points = (XPoint *) realloc(points, n * sizeof(XPoint));
-      max_points = n;
-    }
-
+  PREALLOC_POINTS(n);
   WC_to_NDC(px[0], py[0], tnr, x1, y1);
   seg_xform(&x1, &y1);
   NDC_to_DC(x1, y1, ix1, iy1);
@@ -2173,12 +2172,7 @@ void fill_routine(int n, double *px, double *py, int tnr)
   double x, y;
   int i, npoints;
 
-  if (n > max_points)
-    {
-      points = (XPoint *) realloc(points, n * sizeof(XPoint));
-      max_points = n;
-    }
-
+  PREALLOC_POINTS(n);
   npoints = n;
   for (i = 0; i < n; i++)
     {
@@ -3747,28 +3741,6 @@ void cell_array(
     }
   else
     gks_perror("can't allocate %dx%d data array", w, h);
-}
-
-
-
-static
-void resize_window(void)
-{
-  int width, height;
-
-  if (p->uil < 0)
-    {
-      width = nint((p->viewport[1] - p->viewport[0]) * p->ppm_x * p->magnification);
-      height = nint((p->viewport[3] - p->viewport[2]) * p->ppm_y * p->magnification);
-    }
-  else
-    {
-      width = nint((p->viewport[1] - p->viewport[0]) * 100);
-      height = nint((p->viewport[3] - p->viewport[2]) * 100);
-    }
-
-  if (width != p->width || height != p->height)
-      XResizeWindow(p->dpy, p->win, width, height);
 }
 
 
