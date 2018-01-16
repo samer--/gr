@@ -1755,8 +1755,8 @@ void draw_marker(double xn, double yn, int mtype, double mscale)
         case 2:         /* line */
           for (i = 0; i < 2; i++)
             {
-              xr = scale * marker[mtype][pc + 2 * i + 1];
-              yr = -scale * marker[mtype][pc + 2 * i + 2];
+              double xr = scale * marker[mtype][pc + 2 * i + 1];
+              double yr = -scale * marker[mtype][pc + 2 * i + 2];
               seg_xform_rel(&xr, &yr);
               points[i].x = nint(x - xr);
               points[i].y = nint(y + yr);
@@ -1773,8 +1773,8 @@ void draw_marker(double xn, double yn, int mtype, double mscale)
         case 3:         /* polygon */
           for (i = 0; i < marker[mtype][pc + 1]; i++)
             {
-              xr = scale * marker[mtype][pc + 2 + 2 * i];
-              yr = -scale * marker[mtype][pc + 3 + 2 * i];
+              double xr = scale * marker[mtype][pc + 2 + 2 * i];
+              double yr = -scale * marker[mtype][pc + 3 + 2 * i];
               seg_xform_rel(&xr, &yr);
               points[i].x = nint(x - xr);
               points[i].y = nint(y + yr);
@@ -1794,8 +1794,8 @@ void draw_marker(double xn, double yn, int mtype, double mscale)
         case 4:         /* filled polygon */
           for (i = 0; i < marker[mtype][pc + 1]; i++)
             {
-              xr = scale * marker[mtype][pc + 2 + 2 * i];
-              yr = -scale * marker[mtype][pc + 3 + 2 * i];
+              double xr = scale * marker[mtype][pc + 2 + 2 * i];
+              double yr = -scale * marker[mtype][pc + 3 + 2 * i];
               seg_xform_rel(&xr, &yr);
               points[i].x = nint(x - xr);
               points[i].y = nint(y + yr);
@@ -1815,8 +1815,8 @@ void draw_marker(double xn, double yn, int mtype, double mscale)
         case 5:         /* hollow polygon */
           for (i = 0; i < marker[mtype][pc + 1]; i++)
             {
-              xr = scale * marker[mtype][pc + 2 + 2 * i];
-              yr = -scale * marker[mtype][pc + 3 + 2 * i];
+              double xr = scale * marker[mtype][pc + 2 + 2 * i];
+              double yr = -scale * marker[mtype][pc + 3 + 2 * i];
               seg_xform_rel(&xr, &yr);
               points[i].x = nint(x - xr);
               points[i].y = nint(y + yr);
