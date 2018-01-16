@@ -1125,22 +1125,6 @@ void line_routine(int n, double *px, double *py, int linetype, int tnr)
           break;
 
         case 3: // polyline
-          CGContextBeginPath(context);
-          for (i = 0; i < marker[mindex][pc + 1]; i++)
-            {
-              double xr =  scale * marker[mindex][pc + 2 + 2 * i];
-              double yr =  scale * marker[mindex][pc + 3 + 2 * i];
-              seg_xform_rel(&xr, &yr);
-              if (i == 0)
-                CGContextMoveToPoint(context, x - xr, y + yr);
-              else
-                CGContextAddLineToPoint(context, x - xr, y + yr);
-            }
-          CGContextClosePath(context);
-          CGContextDrawPath(context, kCGPathStroke);
-          pc += 1 + 2 * marker[mindex][pc + 1];
-          break;
-
         case 4: // filled polygon
         case 5: // hollow polygon
           CGContextBeginPath(context);
@@ -1155,22 +1139,17 @@ void line_routine(int n, double *px, double *py, int linetype, int tnr)
                 CGContextAddLineToPoint(context, x - xr, y + yr);
             }
           CGContextClosePath(context);
-          CGContextDrawPath(context, op == 5 ? kCGPathStroke : kCGPathFill);
+          CGContextDrawPath(context, op == 4 ? kCGPathFill : kCGPathStroke);
 
           pc += 1 + 2 * marker[mindex][pc + 1];
           break;
 
         case 6: // arc
-          CGContextBeginPath(context);
-          CGContextAddArc(context, x, y, 1000*scale, 0.0, 2*M_PI,0);
-          CGContextDrawPath(context, kCGPathStroke);
-          break;
-
         case 7: // filled arc
         case 8: // hollow arc
           CGContextBeginPath(context);
           CGContextAddArc(context, x, y, 1000*scale, 0.0, 2*M_PI,0);
-          CGContextDrawPath(context, op == 8 ? kCGPathStroke : kCGPathFill);
+          CGContextDrawPath(context, op == 7 ? kCGPathFill : kCGPathStroke);
           break;
         }
       pc++;
