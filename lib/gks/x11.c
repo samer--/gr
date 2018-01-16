@@ -1,10 +1,8 @@
 // TODO:
-//    line width and marker size
-//    requested size and zoom factor
+//    marker size
 //    marker rendering (fill?)
 //    font size
-//    window resizing (buffer if deferring update?)
-//    remember ws window
+//    defer window resizing?
 #include <stdio.h>
 
 #include "gks.h"
@@ -1219,6 +1217,10 @@ void create_window(int win)
       p->y = xwa.y;
       p->width = xwa.width;
       p->height = xwa.height;
+      p->req_width = p->width;
+      p->req_height = p->height;
+      p->magnification = 1;
+      set_zoom(p, p->width, p->height);
 
       xswa.event_mask |= (xwa.all_event_masks | ButtonPressMask);
 
@@ -4711,42 +4713,55 @@ void gks_drv_x11(
  *  Set workstation viewport
  */
       {
-        double max_width, max_height;
+        double vp_width = r1[1] - r1[0], vp_height = r2[1] - r2[0];
+        double viewport[4] = { 0, vp_width, 0, vp_height };
+        long width, height;
+
+        if (p->uil < 0) {
+          double max_width, max_height;
+
+          if (p->gif >= 0 || p->rf >= 0)
+            {
+              max_width = GIF_MPP * 1280;
+              max_height = GIF_MPP * 1024;
+            }
+          else if (p->new_win)
+            {
+              max_width = p->mwidth;
+              max_height = p->mheight;
+            }
+          else
+            {
+              max_width = 10.0;
+              max_height = 10.0;
+            }
+          gks_fit_ws_viewport(viewport, max_width/p->magnification, max_height/p->magnification, 0);
+        }
 
         lock();
-        p->viewport[0] = r1[0];
-        p->viewport[1] = r1[1];
-        p->viewport[2] = r2[0];
-        p->viewport[3] = r2[1];
+        p->req_width  = vp_width  * p->ppm_x;
+        p->req_height = vp_height * p->ppm_y;
+        set_zoom(p, p->width, p->height);
 
-        if (p->gif >= 0 || p->rf >= 0)
-          {
-            max_width = 1280 * GIF_MPP;
-            max_height = 1024 * GIF_MPP;
-          }
-        else if (p->new_win)
-          {
-            max_width = p->mwidth;
-            max_height = p->mheight;
-          }
-        else
-          {
-            max_width = 10.0;
-            max_height = 10.0;
-          }
-        if (p->uil < 0)
-          gks_fit_ws_viewport(p->viewport, max_width, max_height, 0.0075);
+        if (p->uil < 0) {
+          width  = ceill((viewport[1] - viewport[0]) * p->ppm_x * p->magnification);
+          height = ceill((viewport[3] - viewport[2]) * p->ppm_y * p->magnification);
+        } else {
+          width  = ceill((viewport[1] - viewport[0]) / GIF_MPP);
+          height = ceill((viewport[3] - viewport[2]) / GIF_MPP);
+        }
 
-        resize_window();
-        set_WM_hints(p->x, p->y, p->width, p->height);
-        if (!p->mapped)
-          map_window();
+        if (p->new_win) set_WM_hints(p->x, p->y, width, height);
+        if (width != p->width || height != p->height) {
+          printf("x11> requesting resize to %ld x %ld\n", width, height);
+          XResizeWindow(p->dpy, p->win, width, height);
+        }
 
-        XSync(p->dpy, False);
-        update(); // FIXME this does not seem to be flushing the resize events properly
+        /* XSync(p->dpy, False); */
+        /* update(); // FIXME this does not seem to be flushing the resize events properly */
 
-        setup_xform(p->window, p->viewport);
-        set_clipping(True);
+        /* setup_xform(p->window, p->viewport); */
+        /* set_clipping(True); */
         unlock();
         break;
       }
