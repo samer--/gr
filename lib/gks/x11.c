@@ -1547,7 +1547,7 @@ void configure_event(XConfigureEvent *event)
   double req_aspect_ratio, cur_aspect_ratio;
   int width, height;
 
-  fprintf(stderr, "** configure_event: %d x %d (old size: %d x %d)\n", event->width, event->height, p->width, p->height);
+  /* fprintf(stderr, "** configure_event: %d x %d (old size: %d x %d)\n", event->width, event->height, p->width, p->height); */
   if (p->widget || p->gif >= 0 || p->rf >= 0 || p->uil >= 0 || p->frame)
     return;
 
@@ -4657,7 +4657,7 @@ void gks_drv_x11(
 
         if (p->new_win) set_WM_hints(p->x, p->y, width, height);
         if (width != p->width || height != p->height) {
-          printf("x11> requesting resize to %ld x %ld\n", width, height);
+          /* printf("x11> requesting resize to %ld x %ld\n", width, height); */
           XResizeWindow(p->dpy, p->win, width, height);
         }
 
