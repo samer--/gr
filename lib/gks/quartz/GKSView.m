@@ -965,9 +965,10 @@ static void seg_xform_rel(double *x, double *y) { }
 
       double width  = (viewport[1] - viewport[0]) * ppm_x;
       double height = (viewport[3] - viewport[2]) * ppm_y;
+      NSSize sz = [self bounds].size;
 
-      /* NSLog(@"current size: %lf x %lf, target size: %lf x %lf", p->width, p->height, width, height); */
-      if (fabs(p->width - width) > 1e-9 || fabs(p->height - height) > 1e-9)
+      /* NSLog(@"current size: %lf x %lf, target size: %lf x %lf", sz.width, sz.height, width, height); */
+      if (fabs(sz.width - width) > 1e-6 || fabs(sz.height - height) > 1e-6)
         {
           NSRect rect = [[self window] frame];
           NSSize contentSize = [[self window] contentRectForFrameRect: rect].size;
