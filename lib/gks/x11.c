@@ -1,5 +1,3 @@
-// TODO:
-//    text color 
 #include <stdio.h>
 
 #include "gks.h"
@@ -592,7 +590,6 @@ void seg_xform_rel(double *x, double *y)
 static void set_zoom(ws_state_list *p, double width, double height)
 {
   double z = min(width/p->req_width, height/p->req_height);
-  printf("x11> zoom = %lf\n", z);
   p->line_width_factor = z * p->ppm_y * M_PER_POINT;
 }
 
@@ -1008,22 +1005,18 @@ void allocate_colors(void)
 
 #ifndef NO_XFT
 
-static
-void allocate_rendercolors(void)
+static void alloc_rendercolor(int i)
 {
   XRenderColor rendercolor;
-  int i;
+  XColor *xcolor = &p->color[i];
 
-  for (i = 0; i < MAX_COLOR; i++)
-    {
-      rendercolor.red   = p->color[i].red;
-      rendercolor.green = p->color[i].green;
-      rendercolor.blue  = p->color[i].blue;
-      rendercolor.alpha = 65535;
+  rendercolor.red   = xcolor->red;
+  rendercolor.green = xcolor->green;
+  rendercolor.blue  = xcolor->blue;
+  rendercolor.alpha = 65535;
 
-      p->havecolor[i] = XftColorAllocValue(p->dpy, p->vis, p->cmap,
-                                           &rendercolor, &p->rendercolor[i]);
-    }
+  p->havecolor[i] = XftColorAllocValue(p->dpy, p->vis, p->cmap,
+                                       &rendercolor, &p->rendercolor[i]);
 }
 
 #endif
@@ -1492,16 +1485,14 @@ void set_color_repr(int i, double r, double g, double b)
       XSetForeground(p->dpy, p->invert, p->fg ^ p->bg);
     }
 
+  p->havecolor[i] = False;
   p->ccolor = Undefined;
 }
 
 
 static
-void set_color(int color)
+void set_color(int i)
 {
-  int i;
-
-  i = color;
   if (i != p->ccolor)
     {
       XSetForeground(p->dpy, p->gc, p->color[i].pixel);
@@ -1715,12 +1706,15 @@ static
 void draw_marker(double xn, double yn, int mindex, double r)
 {
   double scale = r/1000, x, y;
-  int i, pc, op, x1, x0, x2, y1, y0, y2, d = sint(r*2);
+  int i, pc, op, x1, x0, x2, y1, y0, y2, dx, dy;
   XPoint points[16];
 
   NDC_to_DC_FP(xn, yn, x, y);
   x1 = sint(x-r); x2 = sint(x+r);
   y1 = sint(y-r); y2 = sint(y+r); 
+  // setting dx and dy is a bit tricky
+  // dx = x2 - x1; dy = y2 - y1;  // correct but leads to different shaped markers when small
+  dx = dy = sint(r*2); // more rounding error and visual centre may be off, but all markers look the same
   update_bbox(x1, x2);
   update_bbox(y1, y2);
 
@@ -1805,20 +1799,20 @@ void draw_marker(double xn, double yn, int mindex, double r)
         case 6:         /* arc */
         case 8:         /* hollow #arc */
           if (p->pixmap)
-            XDrawArc(p->dpy, p->pixmap, p->gc, x1, y1, d, d, 0, 360 * 64);
+            XDrawArc(p->dpy, p->pixmap, p->gc, x1, y1, dx, dy, 0, 360 * 64);
           if (p->selection)
-            XDrawArc(p->dpy, p->drawable, p->gc, x1, y1, d, d, 0, 360 * 64);
+            XDrawArc(p->dpy, p->drawable, p->gc, x1, y1, dx, dy, 0, 360 * 64);
           if (!p->double_buf)
-            XDrawArc(p->dpy, p->win, p->gc, x1, y1, d, d, 0, 360 * 64);
+            XDrawArc(p->dpy, p->win, p->gc, x1, y1, dx, dy, 0, 360 * 64);
           break;
 
         case 7:         /* filled arc */
           if (p->pixmap)
-            XFillArc(p->dpy, p->pixmap, p->gc, x1, y1, d, d, 0, 360 * 64);
+            XFillArc(p->dpy, p->pixmap, p->gc, x1, y1, dx, dy, 0, 360 * 64);
           if (p->selection)
-            XFillArc(p->dpy, p->drawable, p->gc, x1, y2, d, d, 0, 360 * 64);
+            XFillArc(p->dpy, p->drawable, p->gc, x1, y1, dx, dy, 0, 360 * 64);
           if (!p->double_buf)
-            XFillArc(p->dpy, p->win, p->gc, x1, y1, d, d, 0, 360 * 64);
+            XFillArc(p->dpy, p->win, p->gc, x1, y1, dx, dy, 0, 360 * 64);
           break;
         }
       pc++;
@@ -2152,19 +2146,22 @@ void fill_area(int n, double *px, double *py)
     }
 }
 
-
 static
 void x_draw_string(Display *display, Drawable d, GC gc, int x, int y, char *string, int length)
 {
 #ifndef NO_XFT
   XftDraw *draw;
-  XftColor *color = NULL;
+  XftColor *color;
+  int cind = p->ccolor;
+
   unsigned int *s32;
   int i, j;
 
   draw = XftDrawCreate(display, d, p->vis, p->cmap);
-  if (p->havecolor[p->ccolor])
-    color = &p->rendercolor[p->ccolor];
+
+  if (!p->havecolor[cind]) 
+    alloc_rendercolor(cind);
+  color = p->havecolor[cind] ? &p->rendercolor[cind] : NULL;
 
   if (p->font == 12) /* Symbol */
     {
@@ -4198,7 +4195,8 @@ void gks_drv_x11(
   idle = False;
 
   p = (ws_state_list *) *ptr;
-  printf("x11> command %d\n", fctid);
+
+  /* printf("\nx11> ---- FUNCTION %d\n", fctid); */
 
   switch (function_id = fctid)
     {
@@ -4276,7 +4274,9 @@ void gks_drv_x11(
       set_colors();
       allocate_colors();
 #ifndef NO_XFT
-      allocate_rendercolors();
+      { int i;
+        for (i=0; i<MAX_COLOR; i++) alloc_rendercolor(i);
+      }
 #endif
 
       if (p->wstype == 215 || p->wstype == 218)
