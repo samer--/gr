@@ -1547,7 +1547,7 @@ void configure_event(XConfigureEvent *event)
   double req_aspect_ratio, cur_aspect_ratio;
   int width, height;
 
-  /* fprintf(stderr, "** configure_event: %d x %d (old size: %d x %d)\n", event->width, event->height, p->width, p->height); */
+  fprintf(stderr, "** configure_event: %d x %d (old size: %d x %d)\n", event->width, event->height, p->width, p->height);
   if (p->widget || p->gif >= 0 || p->rf >= 0 || p->uil >= 0 || p->frame)
     return;
 
@@ -2041,7 +2041,7 @@ void polymarker(int n, double *px, double *py)
   double radius;
 
   {
-    double xr=p->line_width_factor * mk_size/2, yr=0;
+    double xr=p->line_width_factor * mk_size, yr=0;
     seg_xform_rel(&xr, &yr);
     radius = sqrt(xr * xr + yr * yr);
   }
@@ -2053,7 +2053,7 @@ void polymarker(int n, double *px, double *py)
       double C[4], x, y;
       int    i, xd, yd, mindex = mk_type + marker_off;
 
-      set_line_attr(GKS_K_LINETYPE_SOLID, mk_size/8); 
+      set_line_attr(GKS_K_LINETYPE_SOLID, mk_size/4);
       if (gksl->clip == GKS_K_CLIP)
         {
           memmove(C, gksl->viewport[tnr], 4 * sizeof(double));
@@ -4657,7 +4657,7 @@ void gks_drv_x11(
 
         if (p->new_win) set_WM_hints(p->x, p->y, width, height);
         if (width != p->width || height != p->height) {
-          /* printf("x11> requesting resize to %ld x %ld\n", width, height); */
+          printf("x11> requesting resize to %ld x %ld\n", width, height);
           XResizeWindow(p->dpy, p->win, width, height);
         }
 

@@ -1163,7 +1163,7 @@ void line_routine(int n, double *px, double *py, int linetype, int tnr)
   double mk_size  = gkss->asf[4] ? gkss->mszsc : 1;
   int    mk_color = gkss->asf[5] ? gkss->pmcoli : 1;
   double *clrt = gkss->viewport[gkss->cntnr];
-  double x, y, scale = line_width_factor * mk_size/2;
+  double x, y, scale = line_width_factor * mk_size;
   int    i, mk_index = mk_type + marker_off;
 
   begin_context(context);
