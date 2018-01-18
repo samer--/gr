@@ -37,6 +37,9 @@ int main(int argc, char *argv[])
     {
       gks_open_ws(2, GKS_K_CONID_DEFAULT, GKS_K_WSTYPE_DEFAULT);
       gks_activate_ws(2);
+      gks_update_ws(2, GKS_K_PERFORM_FLAG);
+      puts("Press RETURN to continue ...");
+      getchar();
     }
   gks_set_text_fontprec(12, GKS_K_TEXT_PRECISION_STROKE);
 
@@ -273,12 +276,13 @@ int main(int argc, char *argv[])
     }
   else
     {
-      gks_update_ws(2, GKS_K_PERFORM_FLAG);
+      /* gks_update_ws(2, GKS_K_PERFORM_FLAG); */
 #ifndef EMSCRIPTEN
       puts("Press RETURN to continue ...");
       getchar();
 
       gks_set_pmark_type(2);
+      gks_update_ws(2, GKS_K_PERFORM_FLAG);
       gks_request_locator(2, 1, &inp_status, &tnr, x, y);
       while (inp_status == 1)
 	{
