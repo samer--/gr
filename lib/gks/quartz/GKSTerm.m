@@ -42,6 +42,12 @@
                       styleMask: NSTitledWindowMask | //NSClosableWindowMask |
                       NSMiniaturizableWindowMask | NSResizableWindowMask
                       backing: NSBackingStoreBuffered defer: NO];
+
+      /* // invisible title, content fills whole window, buttons on top */
+      /* window[win].titlebarAppearsTransparent = true; */
+      /* window[win].titleVisibility = NSWindowTitleHidden; */
+      /* window[win].styleMask |= NSFullSizeContentViewWindowMask; */
+
       [window[win] setBackgroundColor: [NSColor colorWithCalibratedWhite: 1 alpha: 1]];
       view[win] = [[GKSView alloc] initWithFrame: NSMakeRect(0, 0, 500, 500)];
       [view[win] setWinID: win];
