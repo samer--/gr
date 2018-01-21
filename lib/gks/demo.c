@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
     }
 
   /* Markertypes */
-  gks_set_pmark_size(3.5);
+  gks_set_pmark_size(5);
 
   x[0] = 0.25;
   y[0] = 0.95;
