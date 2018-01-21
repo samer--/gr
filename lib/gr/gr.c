@@ -9,6 +9,7 @@ typedef __int64 int64_t;
 #else
 #include <stdint.h>
 #endif
+#include <signal.h>
 
 #if !defined(VMS) && !defined(_WIN32)
 #include <unistd.h>
@@ -1459,14 +1460,13 @@ void initialize(int state)
 }
 
 static
-void resetgks(void)
+void resetgks(int sig)
 {
-  static int exiting = 0;
-
-  if (!exiting)
+  if (sig == SIGINT)
     {
-      exiting = 1;
+      signal(SIGINT, SIG_DFL);
       gr_emergencyclosegks();
+      raise(SIGINT);
     }
 }
 
@@ -1513,7 +1513,7 @@ void initgks(void)
       used[color] = 0;
     }
 
-  atexit(resetgks);
+  signal(SIGINT, resetgks);
 }
 
 void gr_opengks(void)
