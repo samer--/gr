@@ -145,7 +145,7 @@ ws_state_list *p;
 static
 const char *fonts[] = {
   "Times New Roman,TimesNewRoman,Times,Baskerville,Georgia,serif",
-  "Arial,Helvetica Neue,Helvetica,sans-serif",
+  "Helvetica,Helvetica Neue,Arial,sans-serif",
   "Courier,Courier New,Lucida Sans Typewriter,Lucida Typewriter,monospace",
   "Symbol",
   "Bookman Old Style,Bookman,Georgia,serif",
