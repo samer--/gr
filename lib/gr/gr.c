@@ -1468,7 +1468,6 @@ void resetgks(int sig)
   if (sig == SIGTERM)
     {
       gr_emergencyclosegks();
-      signal(SIGTERM, previous_handler);
     }
 }
 
