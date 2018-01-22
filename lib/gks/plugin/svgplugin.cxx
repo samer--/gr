@@ -1001,7 +1001,7 @@ void set_clip_path(int tnr)
     int i;
 
     for (i = 0; i < p->clip_index; i++)
-      if (0 && x == p->cx[i] && y == p->cy[i] && width == p->cwidth[i] && height == p->cheight[i])
+      if (x == p->cx[i] && y == p->cy[i] && width == p->cwidth[i] && height == p->cheight[i])
 	{
 	  p->path_index = i;
 	  return;
