@@ -1046,8 +1046,8 @@ void write_page(void)
       sprintf(buf, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
               "<svg xmlns=\"http://www.w3.org/2000/svg\" "
 	      "xmlns:xlink=\"http://www.w3.org/1999/xlink\" "
-	      "width=\"%g\" height=\"%g\">\n",
-	     p->width, p->height); // FIXME
+	      "width=\"%lfpt\" height=\"%lfpt\" viewBox=\"0 0 %lf %lf\">\n",
+	     p->width/PX_PER_PT, p->height/PX_PER_PT, p->width, p->height); 
       gks_write_file(fd, buf, strlen(buf));
       gks_write_file(fd, p->stream->buffer, p->stream->length);
       sprintf(buf, "</svg>\n");
