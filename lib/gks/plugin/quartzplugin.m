@@ -117,7 +117,7 @@ static int update(ws_state_list *wss)
                   all_dead = [plugin GKSQuartzIsAlive: win] == 0;
                 }
                 if (all_dead) {
-                  pthread_kill(wss->master_thread, SIGINT);
+                  pthread_kill(wss->master_thread, SIGTERM);
                 }
               }
               didDie = 1;
@@ -126,7 +126,7 @@ static int update(ws_state_list *wss)
       @catch (NSException *e)
         {
           printf("q> killing master thread due to exception\n");
-          pthread_kill(wss->master_thread, SIGINT);
+          pthread_kill(wss->master_thread, SIGTERM);
           didDie = 1;
         }
 
