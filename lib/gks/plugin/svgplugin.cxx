@@ -118,7 +118,7 @@ SVG_point;
 
 typedef struct ws_state_list_t
 {
-  int conid, state, wtype;
+  int conid, wtype;
   char *path;
   double a, b, c, d;
   double window[4], viewport[4];
@@ -1131,14 +1131,7 @@ void gks_drv_js(
       free(p);
       break;
 
-/* activate workstation */
-    case 4:
-      p->state = GKS_K_WS_ACTIVE;
-      break;
-
-/* deactivate workstation */
-    case 5:
-      p->state = GKS_K_WS_INACTIVE;
+    case 4: case 5: case 8:// activate deactivate update
       break;
 
 /* clear workstation */
@@ -1152,56 +1145,35 @@ void gks_drv_js(
 	}
       break;
 
-/* update workstation */
-    case 8:
-      break;
-
 /* polyline */
     case 12:
-      if (p->state == GKS_K_WS_ACTIVE)
-	{
-	  polyline(ia[0], r1, r2);
-	  p->empty = 0;
-	}
+      polyline(ia[0], r1, r2);
+      p->empty = 0;
       break;
 
 /* polymarker */
     case 13:
-      if (p->state == GKS_K_WS_ACTIVE)
-	{
-	  polymarker(ia[0], r1, r2);
-	  p->empty = 0;
-	}
+      polymarker(ia[0], r1, r2);
+      p->empty = 0;
       break;
 
 /* text */
     case 14:
-      if (p->state == GKS_K_WS_ACTIVE)
-	{
-	  text(r1[0], r2[0], strlen(chars), chars);
-	  p->empty = 0;
-	}
+      text(r1[0], r2[0], strlen(chars), chars);
+      p->empty = 0;
       break;
 
 /* fill area */
     case 15:
-      if (p->state == GKS_K_WS_ACTIVE)
-	{
-	  fillarea(ia[0], r1, r2);
-	  p->empty = 0;
-	}
+      fillarea(ia[0], r1, r2);
+      p->empty = 0;
       break;
 
 /* cell array */
     case 16:
     case DRAW_IMAGE:
-      if (p->state == GKS_K_WS_ACTIVE)
-	{
-	  int true_color = fctid == DRAW_IMAGE;
-
-	  cellarray(r1[0], r1[1], r2[0], r2[1], dx, dy, dimx, ia, true_color);
-	  p->empty = 0;
-	}
+      cellarray(r1[0], r1[1], r2[0], r2[1], dx, dy, dimx, ia, fctid == DRAW_IMAGE);
+      p->empty = 0;
       break;
 
 /* set color representation */
@@ -1255,8 +1227,5 @@ void gks_drv_js(
 /* set transparency */
       p->transparency = r1[0];
       break;
-
-    default:
-      ;
     }
 }
