@@ -116,17 +116,21 @@ static int update(ws_state_list *wss)
                 for (win = 0; all_dead && win < MAX_WINDOWS; win++) {
                   all_dead = [plugin GKSQuartzIsAlive: win] == 0;
                 }
+#ifdef SIGUSR1
                 if (all_dead) {
-                  pthread_kill(wss->master_thread, SIGTERM);
+                  pthread_kill(wss->master_thread, SIGUSR1);
                 }
+#endif
               }
               didDie = 1;
             }
         }
       @catch (NSException *e)
         {
+#ifdef SIGUSR1
           printf("q> killing master thread due to exception\n");
-          pthread_kill(wss->master_thread, SIGTERM);
+          pthread_kill(wss->master_thread, SIGUSR1);
+#endif
           didDie = 1;
         }
 

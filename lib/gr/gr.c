@@ -1462,14 +1462,37 @@ void initialize(int state)
   setscale(options);
 }
 
+#ifdef SIGUSR1
+
 static
 void resetgks(int sig)
 {
-  if (sig == SIGTERM)
+  if (sig == SIGUSR1)
     {
+      gr_emergencyclosegks();
+
+      signal(SIGUSR1, previous_handler);
+      if (previous_handler != SIG_DFL)
+        raise(SIGUSR1);
+    }
+}
+
+#else
+
+static
+void resetgks(void)
+{
+  static int exiting = 0;
+
+  if (!exiting)
+    {
+      exiting = 1;
       gr_emergencyclosegks();
     }
 }
+
+#endif
+
 
 static
 void initgks(void)
@@ -1514,7 +1537,11 @@ void initgks(void)
       used[color] = 0;
     }
 
-  previous_handler = signal(SIGTERM, resetgks);
+#ifdef SIGUSR1
+  previous_handler = signal(SIGUSR1, resetgks);
+#else
+  atexit(resetgks);
+#endif
 }
 
 void gr_opengks(void)
