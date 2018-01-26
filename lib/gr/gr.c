@@ -150,6 +150,9 @@ state_list *ctx, *app_context[MAX_CONTEXT] = {
 };
 
 static
+void (*previous_handler)(int);
+
+static
 int autoinit = 1, double_buf = 0, state_saved = 0, def_color = 0;
 
 static
@@ -1477,12 +1480,37 @@ void initialize(int state)
   setscale(options);
 }
 
+#ifdef SIGUSR1
+
 static
 void resetgks(int sig)
 {
-  if (sig == SIGTERM)
-    gr_emergencyclosegks();
+  if (sig == SIGUSR1)
+    {
+      gr_emergencyclosegks();
+
+      signal(SIGUSR1, previous_handler);
+      if (previous_handler != SIG_DFL)
+        raise(SIGUSR1);
+    }
 }
+
+#else
+
+static
+void resetgks(void)
+{
+  static int exiting = 0;
+
+  if (!exiting)
+    {
+      exiting = 1;
+      gr_emergencyclosegks();
+    }
+}
+
+#endif
+
 
 static
 void initgks(void)
@@ -1527,7 +1555,11 @@ void initgks(void)
       used[color] = 0;
     }
 
-  signal(SIGTERM, resetgks);
+#ifdef SIGUSR1
+  previous_handler = signal(SIGUSR1, resetgks);
+#else
+  atexit(resetgks);
+#endif
 }
 
 void gr_opengks(void)

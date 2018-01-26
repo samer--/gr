@@ -334,9 +334,9 @@ ubuntu16.04-install:
   - gcc -o test test.c -lGR
   - ./test
 
-ubuntu17.04-install:
+ubuntu17.10-install:
   stage: install
-  image: ubuntu:17.04
+  image: ubuntu:17.10
   script:
   - apt-get -q update
   - apt-get -q install -y gdebi-core gcc
@@ -353,17 +353,6 @@ centos7-install:
   - yum install -y epel-release gcc
   # Install gr RPM
   - yum localinstall -y artifacts-packages/linux/centos/gr*.rpm
-  - "echo -e '#include <gr.h>\n#include <stdio.h>\nint main(void) { printf(\"gr version: %s\\\\n\", gr_version()); return 0; }' > test.c"
-  - gcc -o test test.c -lGR
-  - ./test
-
-opensuse42.2-install:
-  stage: install
-  image: opensuse:42.2
-  script:
-  # Install gr RPM
-  - echo 'gpgcheck = off' >> /etc/zypp/zypp.conf
-  - zypper install -y artifacts-packages/linux/suse/gr*.rpm gcc
   - "echo -e '#include <gr.h>\n#include <stdio.h>\nint main(void) { printf(\"gr version: %s\\\\n\", gr_version()); return 0; }' > test.c"
   - gcc -o test test.c -lGR
   - ./test
