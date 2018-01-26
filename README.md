@@ -10,14 +10,14 @@ Configuration
 Bug fixes
 -  Potential buffer overflows relating to the use of fixed size
    string buffers of length MAXPATHLEN (including all calls to
-   `gks_filepath`) have been completely eliminated
-   by using asprintf to allocate memory on demand.
--  PDF resolution has been corrected to 72 dpi exactly
+   `gks_filepath`) have been eliminated by using asprintf to allocate
+   memory on demand.
+-  PDF device unit corrected to 72 points per inch exactly.
 -  Handling of window resize requests in GKSTerm.app has been fixed so
    as not to request window resize during painting, and now takes
    effect at the right time, cooperating with UPDATE requests to
    minimise flickering.
--  Polyine renderers in Quartz and PDF drivers now correctly join the 
+-  Polyline renderers in Quartz and PDF drivers now correctly join the
    first and last segments when given a closed polygon, consistent with
    behaviour of X11 and SVG drivers. This is important because the polyline
    renderer is the only way to draw a closed polygon with an arbitrary line
@@ -25,22 +25,22 @@ Bug fixes
    drawn with thick lines were incorrectly rendered.
 -  Clipping in the PDF driver now works correctly with all graphics
    primitives. In particular, the polyline renderer has been rewritten
-   to produce correctly output even when thick lines are clipped at the 
+   to produce correct output even when thick lines are clipped at the
    viewport edge, while minimising the PDF file size when many line segments
    are outside the clip region.
--  Uses of named clip regions in SVG driver has been fixed in the case when
+-  Use of named clip regions in SVG driver has been fixed in the case when
    the clip region cache is full.
 
 Enhancements
--  X11, Quartz, SVG and PDF backends all updated to handle fractional font sizes.
+-  X11, Quartz, SVG and PDF backends all updated to work with fractional font sizes.
 -  X11, Quartz, SVG and PDF backends all interpret line width in physical points,
    ie units of 1/72 inch. Line widths (and marker sizes) no longer scale with
-   viewport (width + height).
+   viewport (width + height), but instead scale with 'zoom factor' (see below).
 -  Marker rendering in X11, Quartz, SVG and PDF backends has been modified
    consistently to interpret the marker size as an approximate RADIUS
    in POINTS. The marker size is no longer quantised to an integer.
    Also, 'hollow' marker shapes are no longer filled with white,
-   but left truly hollow. Also, the stroke width in marker rendering is 
+   but left truly hollow. Also, the stroke width in marker rendering is
    made proportional to the marker size so that the resulting marker is
    effectively a 'glyph', like a character in a font, with the same shape
    at any size.
