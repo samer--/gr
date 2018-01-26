@@ -1,3 +1,8 @@
+This is a fork of https://github.com/jheinen/gr
+This branch (`master`) tracks upstream. See README.md in
+branch `samer` https://github.com/samer--/gr/tree/samer
+for more details.
+
 GR - a universal framework for visualization applications
 =========================================================
 
