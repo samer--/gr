@@ -657,7 +657,7 @@ void pdf_close(PDF *p)
       pdf_printf(p->stream, ">>\n>>\n");
 
       pdf_printf(p->stream, "/MediaBox [0 0 %g %g]\n",
-                 page->height, page->width);
+                 page->width, page->height);
       pdf_printf(p->stream, "/Contents %ld 0 R\n", page->contents);
       pdf_enddict(p);
       pdf_endobj(p);
