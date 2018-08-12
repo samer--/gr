@@ -5,8 +5,12 @@
 #include <ctype.h>
 #include <math.h>
 
+#if !defined(VMS) && !defined(_WIN32)
+#include <unistd.h>
+#endif
+
 #ifdef _WIN32
-#include <windows.h>
+#include <io.h>
 #endif
 
 #ifdef __APPLE__
@@ -15,6 +19,10 @@
 
 #include "gks.h"
 #include "gkscore.h"
+
+#ifndef R_OK
+#define R_OK 4
+#endif
 
 #ifndef MAXPATHLEN
 #define MAXPATHLEN 1024
@@ -85,6 +93,7 @@ struct wstypes_t wstypes[] = {
   { "quartz", 400 },
   { "socket", 410 },
   { "sock", 410 },
+  { "gksqt", 411 },
   { "zmq", 415 },
   { "gl", 420 },
   { "opengl", 420 },
@@ -2800,6 +2809,70 @@ void gks_emul_fillarea(int n, double *px, double *py, int tnr,
     }
 }
 
+#ifndef __APPLE__
+
+static
+int have_gksqt(void)
+{
+  const char *env;
+  char *path;
+  int result;
+
+  env = gks_getenv("GKS_QT");
+  if (env == NULL)
+    {
+      env = gks_getenv("GRDIR");
+      if (env == NULL)
+        env = GRDIR;
+
+      path = (char *) gks_malloc(MAXPATHLEN);
+#ifndef _WIN32
+#ifdef __APPLE__
+      sprintf(path, "%s/Applications/gksqt.app/Contents/MacOS/gksqt", env);
+#else
+      sprintf(path, "%s/bin/gksqt", env);
+#endif
+#else
+      sprintf(path, "%s\\bin\\gksqt.exe", env);
+#endif
+    }
+  else
+    path = (char *) env;
+
+#ifdef _WIN32
+  result = _access(path, R_OK);
+#else
+  result = access(path, R_OK);
+#endif
+
+  if (path != env)
+    gks_free(path);
+
+  return result != -1;
+}
+
+#endif
+
+static
+int get_default_ws_type(void)
+{
+  static int default_wstype = 0;
+
+  if (default_wstype == 0)
+    {
+#ifndef _WIN32
+#ifdef __APPLE__
+      default_wstype = 400;
+#else
+      default_wstype = have_gksqt() ? 411 : 211;
+#endif
+#else
+      default_wstype = have_gksqt() ? 411 : 41;
+#endif
+    }
+  return default_wstype;
+}
+
 int gks_get_ws_type(void)
 {
   const char *env;
@@ -2840,15 +2913,7 @@ int gks_get_ws_type(void)
 #endif
 
   if (wstype == 0)
-#ifndef _WIN32
-#ifdef __APPLE__
-    wstype = 400;
-#else
-    wstype = 211;
-#endif
-#else
-    wstype = 41;
-#endif
+    wstype = get_default_ws_type();
 
   return wstype;
 }

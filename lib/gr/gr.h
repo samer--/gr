@@ -1,3 +1,4 @@
+#include <stdio.h>
 #ifdef _WIN32
 
 #define HAVE_BOOLEAN
@@ -19,8 +20,10 @@ extern "C" {
 
 #endif
 
-#define GR_TARGET_JUPYTER 0
-#define GR_TARGET_SOCKET 1
+#define GR_SOURCE_JUPYTER 0
+#define GR_SOURCE_SOCKET 1
+#define GR_TARGET_JUPYTER 2
+#define GR_TARGET_SOCKET 3
 
 typedef struct {
   double x, y;
@@ -148,6 +151,7 @@ DLLEXPORT void gr_endgraphics(void);
 DLLEXPORT char *gr_getgraphics(void);
 DLLEXPORT int gr_drawgraphics(char *);
 DLLEXPORT void gr_mathtex(double, double, char *);
+DLLEXPORT void gr_inqmathtex(double, double, char *, double *, double *);
 DLLEXPORT void gr_beginselection(int, int);
 DLLEXPORT void gr_endselection(void);
 DLLEXPORT void gr_moveselection(double, double);
@@ -162,6 +166,7 @@ DLLEXPORT void gr_selectcontext(int);
 DLLEXPORT void gr_destroycontext(int);
 DLLEXPORT int gr_uselinespec(char *);
 DLLEXPORT void gr_delaunay(int, const double *, const double *, int *, int **);
+DLLEXPORT void gr_reducepoints(int, const double *, const double *, int, double *, double *);
 DLLEXPORT void gr_trisurface(int, double *, double *, double *);
 DLLEXPORT void gr_gradient(
   int, int, double *, double *, double *, double *, double *);
@@ -170,8 +175,8 @@ DLLEXPORT void gr_interp2(
   int nx, int ny, const double *x, const double *y, const double *z,
   int nxq, int nyq, const double *xq, const double *yq, double *zq,
   int method, double extrapval);
-DLLEXPORT gr_meta_args_t *gr_meta_args_new();
-DLLEXPORT void gr_meta_args_delete(gr_meta_args_t *);
+DLLEXPORT gr_meta_args_t *gr_newmeta(void);
+DLLEXPORT void gr_deletemeta(gr_meta_args_t *);
 DLLEXPORT void gr_meta_args_push_arg(gr_meta_args_t *, const char *, ...);
 DLLEXPORT void gr_meta_args_push_arg_buf(
   gr_meta_args_t *, const char *, const void *, int);
@@ -179,11 +184,18 @@ DLLEXPORT void gr_meta_args_push_kwarg(
   gr_meta_args_t *, const char *, const char *, ...);
 DLLEXPORT void gr_meta_args_push_kwarg_buf(
   gr_meta_args_t *, const char *, const char *, const void *, int);
-DLLEXPORT void *gr_openmeta(int, ...);
+DLLEXPORT void *gr_openmeta(int, const char *, unsigned int);
+DLLEXPORT gr_meta_args_t *gr_recvmeta(const void *p, gr_meta_args_t *);
 DLLEXPORT int gr_sendmeta(const void *, const char *, ...);
 DLLEXPORT int gr_sendmeta_buf(const void *, const char *, const void *, int);
-DLLEXPORT int gr_sendmeta_args(const void *p, const gr_meta_args_t *args);
+DLLEXPORT int gr_sendmeta_ref(const void *, const char *, char, const void *, int);
+DLLEXPORT int gr_sendmeta_args(const void *p, const gr_meta_args_t *);
 DLLEXPORT void gr_closemeta(const void *);
+DLLEXPORT void gr_plotmeta(const gr_meta_args_t *);
+#ifndef NDEBUG
+DLLEXPORT void gr_dumpmeta(const gr_meta_args_t *, FILE *);
+DLLEXPORT void gr_dumpmeta_json(const gr_meta_args_t *, FILE *);
+#endif
 DLLEXPORT const char *gr_version(void);
 
 #ifdef _WIN32

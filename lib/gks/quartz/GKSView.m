@@ -1059,13 +1059,14 @@ void seg_xform_rel(double *x, double *y)
       p->viewport[3] = height * max_height / p->sheight;
     }
 
-  if (p->width != width || p->height != height)
+  if (fabs(p->width - width) > 0.5 || fabs(p->height - height) > 0.5)
     {
       rect.origin.y   += rect.size.height - height;
       rect.size.width  = width;
       rect.size.height = height;
 
       NSSize contentSize = [[self window] contentRectForFrameRect: rect].size;
+      rect.origin.y -= height - contentSize.height;
       rect.size.width += width - contentSize.width;
       rect.size.height += height - contentSize.height;
 
@@ -1555,6 +1556,17 @@ void fill_routine(int n, double *px, double *py, int tnr)
                      ((int)(gkss->alpha * colors[1] * 255) << 8) +
                      ((int)(gkss->alpha * colors[2] * 255) << 16) +
                      ((int)(gkss->alpha * 255) << 24);
+        }
+    } else {
+      for (i = 0; i < width * height; i++)
+        {
+          /* Combine pixel alpha component and global transparency */
+          float alpha = gkss->alpha * ((colia[i] >> 24) & 0xff) / 255.0f;
+          /* Pre-multiply alpha */
+          colia[i] =  (int)(alpha * ((colia[i] >> 0) & 0xff)) +
+                     ((int)(alpha * ((colia[i] >> 8) & 0xff)) << 8) +
+                     ((int)(alpha * ((colia[i] >> 16) & 0xff)) << 16) +
+                     ((int)(alpha * 255) << 24);
         }
     }
 

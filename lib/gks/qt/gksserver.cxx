@@ -1,3 +1,4 @@
+#include <stdio.h>
 
 #include <QtNetwork>
 #include <qapplication.h>
@@ -7,44 +8,40 @@
 #define PORT 8410
 #define SIZE 262144
 
-#define MAXCONN (int)10
-
 GKSServer::GKSServer(QObject *parent)
   : QTcpServer(parent)
 {
-  setMaxPendingConnections(MAXCONN);
-  connect(this, SIGNAL(newConnection()), this, SLOT(open()));
   connect(this, SIGNAL(newConnection()), this, SLOT(connectSocket()));
-  s = NULL;
-  bool ok = listen(QHostAddress::Any, PORT);
-  if (!ok)
+  if (!listen(QHostAddress::Any, PORT))
     {
       qWarning("GKSserver: Failed to listen to port %d", PORT);
       exit(1);
     }
+
   dl = (char *) malloc(SIZE);
   dl_size = SIZE;
   nbyte = 0;
   ba = (char *) malloc(SIZE);
   ba_size = SIZE;
-  keepOnDisplay = false;
 }
 
-void GKSServer::open()
+void GKSServer::newWidget()
 {
-  emit(openWindow());
+  widget = new GKSWidget();
+  connect(this, SIGNAL(data(char *)), widget, SLOT(interpret(char *)));
+
+  widget->setAttribute(Qt::WA_QuitOnClose, false);
+  widget->setAttribute(Qt::WA_DeleteOnClose);
+  connect(widget, SIGNAL(destroyed(QObject *)), this, SLOT(killSocket()));
 }
 
 void GKSServer::connectSocket()
 {
-  if (s != NULL) {
-    s->disconnectFromHost();
-  }
+  socket = this->nextPendingConnection();
+  connect(socket, SIGNAL(readyRead()), this, SLOT(readClient()));
+  connect(socket, SIGNAL(disconnected()), this, SLOT(disconnectSocket()));
 
-  s = this->nextPendingConnection();
-
-  connect(s, SIGNAL(readyRead()), this, SLOT(readClient()));
-  connect(s, SIGNAL(disconnected()), this, SLOT(killSocket()));
+  newWidget();
 }
 
 void GKSServer::readClient()
@@ -52,15 +49,15 @@ void GKSServer::readClient()
   qint64 cc;
   int length;
 
-  length = s->bytesAvailable();
+  length = socket->bytesAvailable();
 
   while (length > 0)
     {
       if (nbyte == 0)
         {
-          if (s->bytesAvailable() < (int) sizeof(int))
+          if (socket->bytesAvailable() < (int) sizeof(int))
             return;
-          cc = s->read((char *) &nbyte, sizeof(int));
+          cc = socket->read((char *) &nbyte, sizeof(int));
 
           if (nbyte > dl_size)
             {
@@ -68,10 +65,10 @@ void GKSServer::readClient()
               dl_size = nbyte;
             }
         }
-      if (s->bytesAvailable() < nbyte)
+      if (socket->bytesAvailable() < nbyte)
         return;
 
-      cc = s->read(dl, nbyte);
+      cc = socket->read(dl, nbyte);
       if (cc == nbyte)
         {
           if (nbyte + 4 > ba_size)
@@ -85,18 +82,20 @@ void GKSServer::readClient()
           emit(data(ba));
           nbyte = 0;
 
-          length = s->bytesAvailable();
+          length = socket->bytesAvailable();
         }
     }
 }
 
 void GKSServer::killSocket()
 {
-  if (!keepOnDisplay)
-    exit(0);
+  widget->close();
+  newWidget();
 }
 
-void GKSServer::setKeepOnDisplay(const bool flag)
+void GKSServer::disconnectSocket()
 {
-  keepOnDisplay = flag;
+  widget->close();
+  exit(0);
 }
+

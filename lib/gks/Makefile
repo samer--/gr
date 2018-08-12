@@ -1,8 +1,10 @@
-       GRDIR = /usr/local/gr
-      BINDIR = $(DESTDIR)$(GRDIR)/bin
-      LIBDIR = $(DESTDIR)$(GRDIR)/lib
-      INCDIR = $(DESTDIR)$(GRDIR)/include
-     FONTDIR = $(DESTDIR)$(GRDIR)/fonts
+            GRDIR = /usr/local/gr
+           BINDIR = $(DESTDIR)$(GRDIR)/bin
+           LIBDIR = $(DESTDIR)$(GRDIR)/lib
+           INCDIR = $(DESTDIR)$(GRDIR)/include
+          FONTDIR = $(DESTDIR)$(GRDIR)/fonts
+   THIRDPARTYDIR ?= $(shell pwd)/../../3rdparty/build
+THIRDPARTYINCDIR ?= $(THIRDPARTYDIR)/include
 
 UNAME := $(shell uname)
 
@@ -59,11 +61,13 @@ else
 	@make targets
 endif
 
-targets: prerequisites libGKS.a libGKS.so demo gksm plugins
+targets: prerequisites libGKS.a libGKS.so demo gksm plugins gksqt
 
-prerequisites:
+prerequisites: $(THIRDPARTYINCDIR)/zmq.h
 	@for d in bzip2 freetype jpeg libpng16 zlib; do make -C ../../3rdparty/$$d; done
-	@cd ../../3rdparty/zeromq && ./build.sh
+
+$(THIRDPARTYINCDIR)/zmq.h:
+	@cd ../../3rdparty/zeromq && ./build.sh $(THIRDPARTYDIR)
 
 libGKS.a: $(GKSOBJS)
 	$(AR) crv $@ $?
@@ -78,6 +82,9 @@ demo: demo.c libGKS.a
 
 gksm: gksm.c libGKS.a
 	$(CC) -o gksm $(LDFLAGS) gksm.c libGKS.a $(FTLIBS) $(ZLIBS) $(X11LIBS) $(LIBS)
+
+gksqt:
+	@make -C qt -f makefile.mak GRDIR=$(GRDIR)
 
 plugins:
 	@make -C plugin
@@ -96,9 +103,11 @@ install:
 	cp -a fonts/* $(FONTDIR)
 	@if [ ! -d $(INCDIR) ]; then mkdir -m 755 $(INCDIR); fi
 	cp -p gks.h $(INCDIR)
+	@make -C qt -f makefile.mak install
 
 clean:
 	@make -C plugin clean
+	@make -C qt -f makefile.mak clean
 	rm -f demo gksm pasdemo so_locations *.so *.a *.o *.ppu link.res
 	rm -f *.bak *~
 

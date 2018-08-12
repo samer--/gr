@@ -85,7 +85,7 @@ DLLEXPORT void QT_PLUGIN_ENTRY_NAME(
 #endif
 
 static
-gks_state_list_t *gkss;
+gks_state_list_t gkss_, *gkss = &gkss_;
 
 static
 double a[MAX_TNR], b[MAX_TNR], c[MAX_TNR], d[MAX_TNR];
@@ -94,10 +94,11 @@ typedef struct ws_state_list_t
   {
     gks_display_list_t dl;
     QWidget *widget;
+    QPixmap *pm;
     QPainter *pixmap;
     int state, wtype;
     double mwidth, mheight;
-    int width, height, dpiX, dpiY;
+    int width, height;
     double a, b, c, d;
     double window[4], viewport[4];
     QRect rect[MAX_TNR];
@@ -109,12 +110,12 @@ typedef struct ws_state_list_t
     int family, capheight;
     double alpha, angle;
     QPixmap *pattern[PATTERNS];
-    int empty;
+    int empty, has_been_resized;
   }
 ws_state_list;
 
 static
-ws_state_list *p;
+ws_state_list p_, *p = &p_;
 
 static
 const char *fonts[] = {
@@ -224,17 +225,51 @@ void init_norm_xform(void)
 static
 void resize_window(void)
 {
-  p->width  = nint((p->viewport[1] - p->viewport[0]) / 2.54 * p->dpiX * 100);
-  p->height = nint((p->viewport[3] - p->viewport[2]) / 2.54 * p->dpiY * 100);
+  p->width = nint((p->viewport[1] - p->viewport[0]) / p->mwidth * p->width);
+  p->height = nint((p->viewport[3] - p->viewport[2]) / p->mheight * p->height);
+  if (p->pm)
+    {
+      if (p->width  != p->pm->size().width() ||
+          p->height != p->pm->size().height())
+        {
+          delete p->pixmap;
+          delete p->pm;
+
+          p->pm = new QPixmap(p->width, p->height);
+          p->pm->fill(Qt::white);
+
+          p->pixmap = new QPainter(p->pm);
+          p->pixmap->setClipRect(0, 0, p->width, p->height);
+        }
+    }
 }
 
 static
 void set_xform(void)
 {
-  p->a = (p->width - 1) / (p->window[1] - p->window[0]);
-  p->b = -p->window[0] * p->a;
-  p->c = (p->height - 1) / (p->window[2] - p->window[3]);
-  p->d = p->height - 1 - p->window[2] * p->c;
+  double ratio, w, h, x, y;
+
+  ratio = (p->window[1] - p->window[0]) / (p->window[3] - p->window[2]);
+
+  if (p->width > p->height * ratio)
+    {
+      w = p->height * ratio;
+      h = p->height;
+      x = 0.5 * (p->width - w);
+      y = h;
+    }
+  else
+    {
+      w = p->width;
+      h = p->width / ratio;
+      x = 0;
+      y = h + 0.5 * (p->height -h);
+    }
+
+  p->a = w / (p->window[1] - p->window[0]);
+  p->b = x - p->window[0] * p->a;
+  p->c = h / (p->window[2] - p->window[3]);
+  p->d = y + p->window[2] * p->c;
 }
 
 static
@@ -378,14 +413,13 @@ void polyline(int n, double *px, double *py)
   if (width < 1)
     width = 1;
 
-  if (ln_color <= 0 || ln_color >= MAX_COLOR)
+  if (ln_color < 0 || ln_color >= MAX_COLOR)
     ln_color = 1;
-
-  QColor transparent_color(p->rgb[ln_color]);
-  transparent_color.setAlpha(p->transparency);
 
   p->pixmap->save();
   p->pixmap->setRenderHint(QPainter::Antialiasing);
+  QColor transparent_color(p->rgb[ln_color]);
+  transparent_color.setAlpha(p->transparency);
 
   if (ln_type != GKS_K_LINETYPE_SOLID)
     {
@@ -537,6 +571,7 @@ void polymarker(int n, double *px, double *py)
   mk_type = gkss->asf[3] ? gkss->mtype : gkss->mindex;
   mk_size = gkss->asf[4] ? gkss->mszsc : 1;
   mk_color = gkss->asf[5] ? gkss->pmcoli : 1;
+
   if (gkss->version > 4)
     {
       ln_width = (p->width + p->height) * 0.001;
@@ -545,6 +580,9 @@ void polymarker(int n, double *px, double *py)
     }
   else
     ln_width = 1;
+
+  if (mk_color < 0 || mk_color >= MAX_COLOR)
+    mk_color = 1;
 
   p->pixmap->save();
   p->pixmap->setRenderHint(QPainter::Antialiasing);
@@ -660,6 +698,7 @@ void text(double px, double py, int nchars, char *chars)
   tx_font  = gkss->asf[6] ? gkss->txfont : predef_font[gkss->tindex - 1];
   tx_prec  = gkss->asf[6] ? gkss->txprec : predef_prec[gkss->tindex - 1];
   tx_color = gkss->asf[9] ? gkss->txcoli : 1;
+
   if (gkss->version > 4)
     {
       ln_width = (p->width + p->height) * 0.001;
@@ -670,6 +709,9 @@ void text(double px, double py, int nchars, char *chars)
     ln_width = 1;
   if (ln_width < 1)
     ln_width = 1;
+
+  if (tx_color < 0 || tx_color >= MAX_COLOR)
+    tx_color = 1;
 
   p->pixmap->save();
   p->pixmap->setRenderHint(QPainter::Antialiasing);
@@ -722,6 +764,7 @@ void fillarea(int n, double *px, double *py)
   fl_inter = gkss->asf[10] ? gkss->ints : predef_ints[gkss->findex - 1];
   fl_style = gkss->asf[11] ? gkss->styli : predef_styli[gkss->findex - 1];
   fl_color = gkss->asf[12] ? gkss->facoli : 1;
+
   if (gkss->version > 4)
     {
       ln_width = (p->width + p->height) * 0.001;
@@ -733,11 +776,13 @@ void fillarea(int n, double *px, double *py)
   if (ln_width < 1)
     ln_width = 1;
 
-  QColor transparent_color(p->rgb[fl_color]);
-  transparent_color.setAlpha(p->transparency);
+  if (fl_color < 0 || fl_color >= MAX_COLOR)
+    fl_color = 1;
 
   p->pixmap->save();
   p->pixmap->setRenderHint(QPainter::Antialiasing);
+  QColor transparent_color(p->rgb[fl_color]);
+  transparent_color.setAlpha(p->transparency);
 
   if (fl_inter == GKS_K_INTSTYLE_HOLLOW)
     {
@@ -959,12 +1004,17 @@ void interp(char *str)
           memmove(&saved_gkss, gkss, sizeof(gks_state_list_t));
           memmove(gkss, sl, sizeof(gks_state_list_t));
 
-          p->window[0] = p->window[2] = 0.0;
-          p->window[1] = p->window[3] = 1.0;
+          gkss->fontfile = saved_gkss.fontfile;
+
+          if (!p->has_been_resized)
+            {
+              p->window[0] = p->window[2] = 0.0;
+              p->window[1] = p->window[3] = 1.0;
+            }
 
           p->viewport[0] = p->viewport[2] = 0.0;
-          p->viewport[1] = p->width  * 2.54 / p->dpiX / 100;
-          p->viewport[3] = p->height * 2.54 / p->dpiY / 100;
+          p->viewport[1] = p->mwidth;
+          p->viewport[3] = p->mheight;
 
           set_xform();
           init_norm_xform();
@@ -1109,20 +1159,26 @@ void interp(char *str)
           break;
 
         case  54:
-          p->window[0] = f_arr_1[0];
-          p->window[1] = f_arr_1[1];
-          p->window[2] = f_arr_2[0];
-          p->window[3] = f_arr_2[1];
+          if (!p->has_been_resized)
+            {
+              p->window[0] = f_arr_1[0];
+              p->window[1] = f_arr_1[1];
+              p->window[2] = f_arr_2[0];
+              p->window[3] = f_arr_2[1];
+            }
 
           set_xform();
           init_norm_xform();
           break;
 
         case  55:
-          p->viewport[0] = f_arr_1[0];
-          p->viewport[1] = f_arr_1[1];
-          p->viewport[2] = f_arr_2[0];
-          p->viewport[3] = f_arr_2[1];
+          if (!p->has_been_resized)
+            {
+              p->viewport[0] = f_arr_1[0];
+              p->viewport[1] = f_arr_1[1];
+              p->viewport[2] = f_arr_2[0];
+              p->viewport[3] = f_arr_2[1];
+            }
 
           resize_window();
           set_xform();
@@ -1141,6 +1197,41 @@ void interp(char *str)
     }
 
   memmove(gkss, &saved_gkss, sizeof(gks_state_list_t));
+}
+
+static  
+void initialize_data()  
+{  
+  int i;
+
+  p->pm = NULL;
+  p->font = new QFont();
+
+  p->points = new QPolygon(MAX_POINTS);
+  p->npoints = 0;
+  p->max_points = MAX_POINTS;
+
+  for (i = 0; i < PATTERNS; i++)
+    p->pattern[i] = NULL;
+
+  p->empty = 1;
+  p->has_been_resized = 0;
+
+  p->transparency = 255;
+}
+
+static
+void release_data()
+{
+  int i;
+
+  for (i = 0; i < PATTERNS; i++)
+    if (p->pattern[i] != NULL)
+      free(p->pattern[i]);
+
+  delete p->points;
+  delete p->font;
+  delete p;
 }
 
 static
@@ -1171,8 +1262,6 @@ int get_pixmap(void)
       p->mheight = p->widget->heightMM() * 0.001;
       p->width   = p->widget->width();
       p->height  = p->widget->height();
-      p->dpiX    = p->widget->physicalDpiX();
-      p->dpiY    = p->widget->physicalDpiY();
     }
   else
     {
@@ -1180,8 +1269,6 @@ int get_pixmap(void)
       p->mheight = p->pixmap->device()->heightMM() * 0.001;
       p->width   = p->pixmap->device()->width();
       p->height  = p->pixmap->device()->height();
-      p->dpiX    = p->pixmap->device()->logicalDpiX();
-      p->dpiY    = p->pixmap->device()->logicalDpiY();
     }
   return 0;
 }
@@ -1191,8 +1278,6 @@ void QT_PLUGIN_ENTRY_NAME(
   int len_f_arr_1, double *f_arr_1, int len_f_arr_2, double *f_arr_2,
   int len_c_arr, char *c_arr, void **ptr)
 {
-  int i;
-
   p = (ws_state_list *) *ptr;
 
   switch (fctid)
@@ -1202,20 +1287,8 @@ void QT_PLUGIN_ENTRY_NAME(
       p = new ws_state_list;
 
       p->width = p->height = 500;
-      p->dpiX = p->dpiY = 100;
 
-      p->font = new QFont();
-
-      p->points = new QPolygon(MAX_POINTS);
-      p->npoints = 0;
-      p->max_points = MAX_POINTS;
-
-      for (i = 0; i < PATTERNS; i++)
-        p->pattern[i] = NULL;
-
-      p->empty = 1;
-
-      p->transparency = 255;
+      initialize_data();
 
       if (get_pixmap() == 0)
         {
@@ -1236,13 +1309,7 @@ void QT_PLUGIN_ENTRY_NAME(
       break;
 
     case 3:
-      for (i = 0; i < PATTERNS; i++)
-        if (p->pattern[i] != NULL)
-          free(p->pattern[i]);
-
-      delete p->points;
-      delete p->font;
-      delete p;
+      release_data();
 
       p = NULL;
       break;

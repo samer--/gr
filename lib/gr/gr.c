@@ -173,12 +173,6 @@ double arrow_size = 1;
 static
 int flag_printing = 0, flag_graphics = 0;
 
-static
-double xfac[4] = { 0, 0, -0.5, -1 };
-
-static
-double yfac[6] = { 0, -1.2, -1, -0.5, 0, 0.2 };
-
 #define DEFAULT_FIRST_COLOR 8
 #define DEFAULT_LAST_COLOR 79
 
@@ -1122,6 +1116,18 @@ LPSTR FAR PASCAL DLLGetEnv(LPSTR lpszVariableName)
 #endif
 
 static
+char *xcalloc(int count, int size)
+{
+  char *result = (char *) calloc(count, size);
+  if (!result)
+    {
+      fprintf(stderr, "out of virtual memory\n");
+      abort();
+    }
+  return (result);
+}
+
+static
 char *xmalloc(int size)
 {
   char *result = (char *) malloc(size);
@@ -1485,9 +1491,16 @@ void initialize(int state)
 static
 void resetgks(int sig)
 {
+  static int exiting = 0;
+
   if (sig == SIGUSR1)
     {
-      gr_emergencyclosegks();
+      if (!exiting)
+        {
+          exiting = 1;
+          gr_emergencyclosegks();
+          exiting = 0;
+        }
 
       signal(SIGUSR1, previous_handler);
       if (previous_handler != SIG_DFL)
@@ -1506,6 +1519,7 @@ void resetgks(void)
     {
       exiting = 1;
       gr_emergencyclosegks();
+      exiting = 0;
     }
 }
 
@@ -1532,7 +1546,7 @@ void initgks(void)
 
   gks_inq_ws_conntype(wkid, &errind, &conid, &wtype);
   if (!double_buf)
-    double_buf = wtype == 380 || wtype == 381 || wtype == 400 || wtype == 410;
+    double_buf = wtype == 380 || wtype == 381 || wtype == 400 || wtype == 410 ||                 wtype == 411;;
 
   if (display)
     {
@@ -1588,6 +1602,74 @@ void gr_inqdspsize(double *mwidth, double *mheight, int *width, int *height)
   gks_inq_max_ds_size(wtype, &errind, &dcunit, mwidth, mheight, width, height);
 }
 
+/*!
+ * Open a graphical workstation.
+ *
+ * \param[in] workstation_id a workstation identifier
+ * \param[in] connection a connection identifier
+ * \param[in] type the desired workstation type
+ *
+ *
+ * \verbatim embed:rst:leading-asterisk
+ *
+ * Available workstation types:
+ *
+ * +-------------+------------------------------------------------------+
+ * |     **Type**|**Description**                                       |
+ * +-------------+------------------------------------------------------+
+ * |            5|Workstation Independent Segment Storage               |
+ * +-------------+------------------------------------------------------+
+ * |         7, 8|Computer Graphics Metafile (CGM binary, clear text)   |
+ * +-------------+------------------------------------------------------+
+ * |           41|Windows GDI                                           |
+ * +-------------+------------------------------------------------------+
+ * |           51|Mac Quickdraw                                         |
+ * +-------------+------------------------------------------------------+
+ * |      61 - 64|PostScript (b/w, color)                               |
+ * +-------------+------------------------------------------------------+
+ * |     101, 102|Portable Document Format (plain, compressed)          |
+ * +-------------+------------------------------------------------------+
+ * |    210 - 213|X Windows                                             |
+ * +-------------+------------------------------------------------------+
+ * |          214|Sun Raster file (RF)                                  |
+ * +-------------+------------------------------------------------------+
+ * |     215, 218|Graphics Interchange Format (GIF87, GIF89)            |
+ * +-------------+------------------------------------------------------+
+ * |          216|Motif User Interface Language (UIL)                   |
+ * +-------------+------------------------------------------------------+
+ * |          320|Windows Bitmap (BMP)                                  |
+ * +-------------+------------------------------------------------------+
+ * |          321|JPEG image file                                       |
+ * +-------------+------------------------------------------------------+
+ * |          322|Portable Network Graphics file (PNG)                  |
+ * +-------------+------------------------------------------------------+
+ * |          323|Tagged Image File Format (TIFF)                       |
+ * +-------------+------------------------------------------------------+
+ * |          370|Xfig vector graphics file                             |
+ * +-------------+------------------------------------------------------+
+ * |          371|Gtk                                                   |
+ * +-------------+------------------------------------------------------+
+ * |          380|wxWidgets                                             |
+ * +-------------+------------------------------------------------------+
+ * |          381|Qt4                                                   |
+ * +-------------+------------------------------------------------------+
+ * |          382|Scaleable Vector Graphics (SVG)                       |
+ * +-------------+------------------------------------------------------+
+ * |          390|Windows Metafile                                      |
+ * +-------------+------------------------------------------------------+
+ * |          400|Quartz                                                |
+ * +-------------+------------------------------------------------------+
+ * |          410|Socket driver                                         |
+ * +-------------+------------------------------------------------------+
+ * |          415|0MQ driver                                            |
+ * +-------------+------------------------------------------------------+
+ * |          420|OpenGL                                                |
+ * +-------------+------------------------------------------------------+
+ * |          430|HTML5 Canvas                                          |
+ * +-------------+------------------------------------------------------+
+ *
+ * \endverbatim
+ */
 void gr_openws(int workstation_id, char *connection, int type)
 {
   if (connection)
@@ -1598,16 +1680,31 @@ void gr_openws(int workstation_id, char *connection, int type)
   gks_open_ws(workstation_id, connection, type);
 }
 
+/*!
+ * Close the specified workstation.
+ *
+ * \param[in] workstation_id a workstation identifier
+ */
 void gr_closews(int workstation_id)
 {
   gks_close_ws(workstation_id);
 }
 
+/*!
+ * Activate the specified workstation.
+ *
+ * \param[in] workstation_id a workstation identifier
+ */
 void gr_activatews(int workstation_id)
 {
   gks_activate_ws(workstation_id);
 }
 
+/*!
+ * Deactivate the specified workstation.
+ *
+ * \param[in] workstation_id a workstation identifier
+ */
 void gr_deactivatews(int workstation_id)
 {
   gks_deactivate_ws(workstation_id);
@@ -1791,6 +1888,18 @@ void primitive(char *name, int n, double *x, double *y)
   gr_writestream("/>\n");
 }
 
+/*!
+ * Draw a polyline using the current line attributes, starting from the
+ * first data point and ending at the last data point.
+ *
+ * \param[in] n The number of points
+ * \param[in] x A pointer to the X coordinates
+ * \param[in] y A pointer to the Y coordinates
+ *
+ * The values for `x` and `y` are in world coordinates. The attributes that
+ * control the appearance of a polyline are linetype, linewidth and color
+ * index.
+ */
 void gr_polyline(int n, double *x, double *y)
 {
   gks(gks_polyline);
@@ -1799,6 +1908,17 @@ void gr_polyline(int n, double *x, double *y)
     primitive("polyline", n, x, y);
 }
 
+/*!
+ * Draw marker symbols centered at the given data points.
+ *
+ * \param[in] n The number of points
+ * \param[in] x A pointer to the X coordinates
+ * \param[in] y A pointer to the Y coordinates
+ *
+ * The values for `x` and `y` are in world coordinates. The attributes that
+ * control the appearance of a polymarker are marker type, marker size
+ * scale factor and color index.
+ */
 void gr_polymarker(int n, double *x, double *y)
 {
   gks(gks_polymarker);
@@ -1807,6 +1927,18 @@ void gr_polymarker(int n, double *x, double *y)
     primitive("polymarker", n, x, y);
 }
 
+/*!
+ * Draw a text at position `x`, `y` using the current text attributes.
+ *
+ * \param[in] x The X coordinate of the starting position of the text string
+ * \param[in] y The Y coordinate of the starting position of the text string
+ * \param[in] string The text to be drawn
+ *
+ * The values for `x` and `y` are in normalized device coordinates.
+ * The attributes that control the appearance of text are text font and
+ * precision, character expansion factor, character spacing, text color index,
+ * character height, character up vector, text path and text alignment.
+ */
 void gr_text(double x, double y, char *string)
 {
   int errind, tnr, halign, valign, n;
@@ -1968,6 +2100,16 @@ void gr_inqtext(double x, double y, char *string, double *tbx, double *tby)
     }
 }
 
+/*!
+ * Allows you to specify a polygonal shape of an area to be filled.
+ *
+ * \param[in] n The number of points
+ * \param[in] x A pointer to the X coordinates
+ * \param[in] y A pointer to the Y coordinates
+ *
+ * The attributes that control the appearance of fill areas are fill area
+ * interior style, fill area style index and fill area color index.
+ */
 void gr_fillarea(int n, double *x, double *y)
 {
   gks(gks_fillarea);
@@ -1976,6 +2118,26 @@ void gr_fillarea(int n, double *x, double *y)
     primitive("fillarea", n, x, y);
 }
 
+/*!
+ * Display rasterlike images in a device-independent manner. The cell array
+ * function partitions a rectangle given by two corner points into DIMX X DIMY
+ * cells, each of them colored individually by the corresponding color index
+ * of the given cell array.
+ *
+ * \param[in] xmin X coordinate of the lower left point of the rectangle
+ * \param[in] ymin Y coordinate of the lower left point of the rectangle
+ * \param[in] xmax X coordinate of the upper right point of the rectangle
+ * \param[in] ymax Y coordinate of the upper right point of the rectangle
+ * \param[in] dimx X dimension of the color index array
+ * \param[in] dimy Y dimension of the color index array
+ * \param[in] scol number of leading columns in the color index array
+ * \param[in] srow number of leading rows in the color index array
+ * \param[in] ncol total number of columns in the color index array
+ * \param[in] nrow total number of rows in the color index array
+ * \param[in] color color index array
+ *
+ * The values for `xmin`, `xmax`, `ymin` and `ymax` are in world coordinates.
+ */
 void gr_cellarray(
   double xmin, double xmax, double ymin, double ymax, int dimx, int dimy,
   int scol, int srow, int ncol, int nrow, int *color)
@@ -2033,6 +2195,24 @@ void gr_gdp(int n, double *x, double *y, int primid, int ldr, int *datrec)
     }
 }
 
+/*!
+ * Generate a cubic spline-fit, starting from the first data point and
+ * ending at the last data point.
+ *
+ * \param[in] n The number of points
+ * \param[in] px A pointer to the X coordinates
+ * \param[in] py A pointer to the Y coordinates
+ * \param[in] m The number of points in the polygon to be drawn (m > n)
+ * \param[in] method The smoothing method
+ *
+ * The values for `x` and `y` are in world coordinates. The attributes that
+ * control the appearance of a spline-fit are linetype, linewidth and color
+ * index.
+ *
+ * If `method` is > 0, then a generalized cross-validated smoothing spline is calculated.
+ * If `method` is 0, then an interpolating natural cubic spline is calculated.
+ * If `method` is < -1, then a cubic B-spline is calculated.
+ */
 void gr_spline(int n, double *px, double *py, int m, int method)
 {
   int err = 0, i, j;
@@ -2213,6 +2393,44 @@ void gr_gridit(int nd, double *xd, double *yd, double *zd,
   free(iwk);
 }
 
+/*!
+ * Specify the line style for polylines.
+ *
+ * \param[in] type The polyline line style
+ *
+ *
+ * \verbatim embed:rst:leading-asterisk
+ *
+ * The available line types are:
+ *
+ * +---------------------------+----+---------------------------------------------------+
+ * |LINETYPE_SOLID             |   1|Solid line                                         |
+ * +---------------------------+----+---------------------------------------------------+
+ * |LINETYPE_DASHED            |   2|Dashed line                                        |
+ * +---------------------------+----+---------------------------------------------------+
+ * |LINETYPE_DOTTED            |   3|Dotted line                                        |
+ * +---------------------------+----+---------------------------------------------------+
+ * |LINETYPE_DASHED_DOTTED     |   4|Dashed-dotted line                                 |
+ * +---------------------------+----+---------------------------------------------------+
+ * |LINETYPE_DASH_2_DOT        |  -1|Sequence of one dash followed by two dots          |
+ * +---------------------------+----+---------------------------------------------------+
+ * |LINETYPE_DASH_3_DOT        |  -2|Sequence of one dash followed by three dots        |
+ * +---------------------------+----+---------------------------------------------------+
+ * |LINETYPE_LONG_DASH         |  -3|Sequence of long dashes                            |
+ * +---------------------------+----+---------------------------------------------------+
+ * |LINETYPE_LONG_SHORT_DASH   |  -4|Sequence of a long dash followed by a short dash   |
+ * +---------------------------+----+---------------------------------------------------+
+ * |LINETYPE_SPACED_DASH       |  -5|Sequence of dashes double spaced                   |
+ * +---------------------------+----+---------------------------------------------------+
+ * |LINETYPE_SPACED_DOT        |  -6|Sequence of dots double spaced                     |
+ * +---------------------------+----+---------------------------------------------------+
+ * |LINETYPE_DOUBLE_DOT        |  -7|Sequence of pairs of dots                          |
+ * +---------------------------+----+---------------------------------------------------+
+ * |LINETYPE_TRIPLE_DOT        |  -8|Sequence of groups of three dots                   |
+ * +---------------------------+----+---------------------------------------------------+
+ *
+ * \endverbatim
+ */
 void gr_setlinetype(int type)
 {
   check_autoinit;
@@ -2231,6 +2449,17 @@ void gr_inqlinetype(int *ltype)
   gks_inq_pline_linetype(&errind, ltype);
 }
 
+/*!
+ * Define the line width of subsequent polyline output primitives.
+ *
+ * \param[in] width The polyline line width scale factor
+ *
+ * The line width is calculated as the nominal line width generated
+ * on the workstation multiplied by the line width scale factor.
+ * This value is mapped by the workstation to the nearest available line width.
+ * The default line width is 1.0, or 1 times the line width generated on the
+ * graphics device.
+ */
 void gr_setlinewidth(double width)
 {
   check_autoinit;
@@ -2249,6 +2478,11 @@ void gr_inqlinewidth(double *width)
   gks_inq_pline_linewidth(&errind, width);
 }
 
+/*!
+ * Define the color of subsequent polyline output primitives.
+ *
+ * \param[in] color The polyline color index (COLOR < 1256)
+ */
 void gr_setlinecolorind(int color)
 {
   check_autoinit;
@@ -2267,6 +2501,94 @@ void gr_inqlinecolorind(int *coli)
   gks_inq_pline_color_index(&errind, coli);
 }
 
+/*!
+ * Specifiy the marker type for polymarkers.
+ *
+ * \param[in] type The polymarker marker type
+ *
+ * \verbatim embed:rst:leading-asterisk
+ *
+ * The available marker types are:
+ *
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_DOT               |    1|Smallest displayable dot                        |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_PLUS              |    2|Plus sign                                       |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_ASTERISK          |    3|Asterisk                                        |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_CIRCLE            |    4|Hollow circle                                   |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_DIAGONAL_CROSS    |    5|Diagonal cross                                  |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_SOLID_CIRCLE      |   -1|Filled circle                                   |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_TRIANGLE_UP       |   -2|Hollow triangle pointing upward                 |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_SOLID_TRI_UP      |   -3|Filled triangle pointing upward                 |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_TRIANGLE_DOWN     |   -4|Hollow triangle pointing downward               |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_SOLID_TRI_DOWN    |   -5|Filled triangle pointing downward               |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_SQUARE            |   -6|Hollow square                                   |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_SOLID_SQUARE      |   -7|Filled square                                   |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_BOWTIE            |   -8|Hollow bowtie                                   |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_SOLID_BOWTIE      |   -9|Filled bowtie                                   |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_HGLASS            |  -10|Hollow hourglass                                |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_SOLID_HGLASS      |  -11|Filled hourglass                                |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_DIAMOND           |  -12|Hollow diamond                                  |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_SOLID_DIAMOND     |  -13|Filled Diamond                                  |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_STAR              |  -14|Hollow star                                     |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_SOLID_STAR        |  -15|Filled Star                                     |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_TRI_UP_DOWN       |  -16|Hollow triangles pointing up and down overlaid  |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_SOLID_TRI_RIGHT   |  -17|Filled triangle point right                     |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_SOLID_TRI_LEFT    |  -18|Filled triangle pointing left                   |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_HOLLOW PLUS       |  -19|Hollow plus sign                                |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_SOLID PLUS        |  -20|Solid plus sign                                 |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_PENTAGON          |  -21|Pentagon                                        |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_HEXAGON           |  -22|Hexagon                                         |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_HEPTAGON          |  -23|Heptagon                                        |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_OCTAGON           |  -24|Octagon                                         |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_STAR_4            |  -25|4-pointed star                                  |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_STAR_5            |  -26|5-pointed star (pentagram)                      |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_STAR_6            |  -27|6-pointed star (hexagram)                       |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_STAR_7            |  -28|7-pointed star (heptagram)                      |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_STAR_8            |  -29|8-pointed star (octagram)                       |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_VLINE             |  -30|verical line                                    |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_HLINE             |  -31|horizontal line                                 |
+ * +-----------------------------+-----+------------------------------------------------+
+ * |MARKERTYPE_OMARK             |  -32|o-mark                                          |
+ * +-----------------------------+-----+------------------------------------------------+
+ * \endverbatim
+ *
+ * Polymarkers appear centered over their specified coordinates.
+ */
 void gr_setmarkertype(int type)
 {
   check_autoinit;
@@ -2285,6 +2607,14 @@ void gr_inqmarkertype(int *mtype)
   gks_inq_pmark_type(&errind, mtype);
 }
 
+/*!
+ * Specify the marker size for polymarkers.
+ *
+ * \param[in] size Scale factor applied to the nominal marker size
+ *
+ * The polymarker size is calculated as the nominal size generated on the graphics device
+ * multiplied by the marker size scale factor.
+ */
 void gr_setmarkersize(double size)
 {
   check_autoinit;
@@ -2297,6 +2627,11 @@ void gr_setmarkersize(double size)
     gr_writestream("<setmarkersize size=\"%g\"/>\n", size);
 }
 
+/*!
+ * Define the color of subsequent polymarker output primitives.
+ *
+ * \param[in] color The polymarker color index (COLOR < 1256)
+ */
 void gr_setmarkercolorind(int color)
 {
   check_autoinit;
@@ -2315,6 +2650,97 @@ void gr_inqmarkercolorind(int *coli)
   gks_inq_pmark_color_index(&errind, coli);
 }
 
+/*!
+ * Specify the text font and precision for subsequent text output primitives.
+ *
+ * \param[in] font Text font (see tables)
+ * \param[in] precision Text precision (see table below)
+ *
+ * \verbatim embed:rst:leading-asterisk
+ *
+ * The available text fonts are:
+ *
+ * +--------------------------------------+-----+
+ * |FONT_TIMES_ROMAN                      |  101|
+ * +--------------------------------------+-----+
+ * |FONT_TIMES_ITALIC                     |  102|
+ * +--------------------------------------+-----+
+ * |FONT_TIMES_BOLD                       |  103|
+ * +--------------------------------------+-----+
+ * |FONT_TIMES_BOLDITALIC                 |  104|
+ * +--------------------------------------+-----+
+ * |FONT_HELVETICA                        |  105|
+ * +--------------------------------------+-----+
+ * |FONT_HELVETICA_OBLIQUE                |  106|
+ * +--------------------------------------+-----+
+ * |FONT_HELVETICA_BOLD                   |  107|
+ * +--------------------------------------+-----+
+ * |FONT_HELVETICA_BOLDOBLIQUE            |  108|
+ * +--------------------------------------+-----+
+ * |FONT_COURIER                          |  109|
+ * +--------------------------------------+-----+
+ * |FONT_COURIER_OBLIQUE                  |  110|
+ * +--------------------------------------+-----+
+ * |FONT_COURIER_BOLD                     |  111|
+ * +--------------------------------------+-----+
+ * |FONT_COURIER_BOLDOBLIQUE              |  112|
+ * +--------------------------------------+-----+
+ * |FONT_SYMBOL                           |  113|
+ * +--------------------------------------+-----+
+ * |FONT_BOOKMAN_LIGHT                    |  114|
+ * +--------------------------------------+-----+
+ * |FONT_BOOKMAN_LIGHTITALIC              |  115|
+ * +--------------------------------------+-----+
+ * |FONT_BOOKMAN_DEMI                     |  116|
+ * +--------------------------------------+-----+
+ * |FONT_BOOKMAN_DEMIITALIC               |  117|
+ * +--------------------------------------+-----+
+ * |FONT_NEWCENTURYSCHLBK_ROMAN           |  118|
+ * +--------------------------------------+-----+
+ * |FONT_NEWCENTURYSCHLBK_ITALIC          |  119|
+ * +--------------------------------------+-----+
+ * |FONT_NEWCENTURYSCHLBK_BOLD            |  120|
+ * +--------------------------------------+-----+
+ * |FONT_NEWCENTURYSCHLBK_BOLDITALIC      |  121|
+ * +--------------------------------------+-----+
+ * |FONT_AVANTGARDE_BOOK                  |  122|
+ * +--------------------------------------+-----+
+ * |FONT_AVANTGARDE_BOOKOBLIQUE           |  123|
+ * +--------------------------------------+-----+
+ * |FONT_AVANTGARDE_DEMI                  |  124|
+ * +--------------------------------------+-----+
+ * |FONT_AVANTGARDE_DEMIOBLIQUE           |  125|
+ * +--------------------------------------+-----+
+ * |FONT_PALATINO_ROMAN                   |  126|
+ * +--------------------------------------+-----+
+ * |FONT_PALATINO_ITALIC                  |  127|
+ * +--------------------------------------+-----+
+ * |FONT_PALATINO_BOLD                    |  128|
+ * +--------------------------------------+-----+
+ * |FONT_PALATINO_BOLDITALIC              |  129|
+ * +--------------------------------------+-----+
+ * |FONT_ZAPFCHANCERY_MEDIUMITALIC        |  130|
+ * +--------------------------------------+-----+
+ * |FONT_ZAPFDINGBATS                     |  131|
+ * +--------------------------------------+-----+
+ *
+ * The available text precisions are:
+ *
+ * +---------------------------+---+--------------------------------------+
+ * |TEXT_PRECISION_STRING      |  0|String precision (higher quality)     |
+ * +---------------------------+---+--------------------------------------+
+ * |TEXT_PRECISION_CHAR        |  1|Character precision (medium quality)  |
+ * +---------------------------+---+--------------------------------------+
+ * |TEXT_PRECISION_STROKE      |  2|Stroke precision (lower quality)      |
+ * +---------------------------+---+--------------------------------------+
+ *
+ * \endverbatim
+ *
+ * The appearance of a font depends on the text precision value specified.
+ * STRING, CHARACTER or STROKE precision allows for a greater or lesser
+ * realization of the text primitives, for efficiency. STRING is the default
+ * precision for GR and produces the highest quality output.
+ */
 void gr_settextfontprec(int font, int precision)
 {
   check_autoinit;
@@ -2331,6 +2757,17 @@ void gr_settextfontprec(int font, int precision)
             font, precision);
 }
 
+/*!
+ * Set the current character expansion factor (width to height ratio).
+ *
+ * \param[in] factor Text expansion factor applied to the nominal text
+ *                   width-to-height ratio
+ *
+ * This function defines the width of subsequent text output primitives. The
+ * expansion factor alters the width of the generated characters, but not their
+ * height. The default text expansion factor is 1, or one times the normal
+ * width-to-height ratio of the text.
+ */
 void gr_setcharexpan(double factor)
 {
   check_autoinit;
@@ -2356,6 +2793,14 @@ void gr_setcharspace(double spacing)
 
 }
 
+/*!
+ * Set the current text color index.
+ *
+ * \param[in] color The text color index (COLOR < 1256)
+ *
+ * This function defines the color of subsequent text output primitives. GR uses
+ * the default foreground color (black=1) for the default text color index.
+ */
 void gr_settextcolorind(int color)
 {
   check_autoinit;
@@ -2368,6 +2813,15 @@ void gr_settextcolorind(int color)
     gr_writestream("<settextcolorind color=\"%d\"/>\n", color);
 }
 
+/*!
+ * Set the current character height.
+ *
+ * \param[in] height Text height value
+ *
+ * This function defines the height of subsequent text output primitives. Text
+ * height is defined as a percentage of the default window. GR uses the default
+ * text height of 0.027 (2.7% of the height of the default window).
+ */
 void gr_setcharheight(double height)
 {
   check_autoinit;
@@ -2380,6 +2834,15 @@ void gr_setcharheight(double height)
     gr_writestream("<setcharheight height=\"%g\"/>\n", height);
 }
 
+/*!
+ * Set the current character text angle up vector.
+ *
+ * \param[in] ux X coordinate of the text up vector
+ * \param[in] uy Y coordinate of the text up vector
+ *
+ * This function defines the vertical rotation of subsequent text output primitives.
+ The text up vector is initially set to (0, 1), horizontal to the baseline.
+ */
 void gr_setcharup(double ux, double uy)
 {
   check_autoinit;
@@ -2395,6 +2858,25 @@ void gr_setcharup(double ux, double uy)
     gr_writestream("<setcharup x=\"%g\" y=\"%g\"/>\n", ux, uy);
 }
 
+/*!
+ * Define the current direction in which subsequent text will be drawn.
+ *
+ * \param[in] path Text path (see table)
+ *
+ * \verbatim embed:rst:leading-asterisk
+ *
+ * +----------------------+---+---------------+
+ * |TEXT_PATH_RIGHT       |  0|left-to-right  |
+ * +----------------------+---+---------------+
+ * |TEXT_PATH_LEFT        |  1|right-to-left  |
+ * +----------------------+---+---------------+
+ * |TEXT_PATH_UP          |  2|downside-up    |
+ * +----------------------+---+---------------+
+ * |TEXT_PATH_DOWN        |  3|upside-down    |
+ * +----------------------+---+---------------+
+ *
+ * \endverbatim
+ */
 void gr_settextpath(int path)
 {
   check_autoinit;
@@ -2407,6 +2889,44 @@ void gr_settextpath(int path)
     gr_writestream("<settextpath path=\"%d\"/>\n", path);
 }
 
+/*!
+ * Set the current horizontal and vertical alignment for text.
+ *
+ * \param[in] horizontal Horizontal text alignment (see the table)
+ * \param[in] vertical Vertical text alignment (see the table)
+ *
+ * \verbatim embed:rst:leading-asterisk
+ *
+ * +-------------------------+---+----------------+
+ * |TEXT_HALIGN_NORMAL       |  0|                |
+ * +-------------------------+---+----------------+
+ * |TEXT_HALIGN_LEFT         |  1|Left justify    |
+ * +-------------------------+---+----------------+
+ * |TEXT_HALIGN_CENTER       |  2|Center justify  |
+ * +-------------------------+---+----------------+
+ * |TEXT_HALIGN_RIGHT        |  3|Right justify   |
+ * +-------------------------+---+----------------+
+ *
+ * +-------------------------+---+------------------------------------------------+
+ * |TEXT_VALIGN_NORMAL       |  0|                                                |
+ * +-------------------------+---+------------------------------------------------+
+ * |TEXT_VALIGN_TOP          |  1|Align with the top of the characters            |
+ * +-------------------------+---+------------------------------------------------+
+ * |TEXT_VALIGN_CAP          |  2|Aligned with the cap of the characters          |
+ * +-------------------------+---+------------------------------------------------+
+ * |TEXT_VALIGN_HALF         |  3|Aligned with the half line of the characters    |
+ * +-------------------------+---+------------------------------------------------+
+ * |TEXT_VALIGN_BASE         |  4|Aligned with the base line of the characters    |
+ * +-------------------------+---+------------------------------------------------+
+ * |TEXT_VALIGN_BOTTOM       |  5|Aligned with the bottom line of the characters  |
+ * +-------------------------+---+------------------------------------------------+
+ *
+ * \endverbatim
+ *
+ * This function specifies how the characters in a text primitive will be
+ * aligned in horizontal and vertical space. The default text alignment
+ * indicates horizontal left alignment and vertical baseline alignment.
+ */
 void gr_settextalign(int horizontal, int vertical)
 {
   check_autoinit;
@@ -2423,6 +2943,28 @@ void gr_settextalign(int horizontal, int vertical)
             horizontal, vertical);
 }
 
+/*!
+ * Set the fill area interior style to be used for fill areas.
+ *
+ * \param[in] style The style of fill to be used
+ *
+ * \verbatim embed:rst:leading-asterisk
+ *
+ * +---------+---+--------------------------------------------------------------------------------+
+ * |HOLLOW   |  0|No filling. Just draw the bounding polyline                                     |
+ * +---------+---+--------------------------------------------------------------------------------+
+ * |SOLID    |  1|Fill the interior of the polygon using the fill color index                     |
+ * +---------+---+--------------------------------------------------------------------------------+
+ * |PATTERN  |  2|Fill the interior of the polygon using the style index as a pattern index       |
+ * +---------+---+--------------------------------------------------------------------------------+
+ * |HATCH    |  3|Fill the interior of the polygon using the style index as a cross-hatched style |
+ * +---------+---+--------------------------------------------------------------------------------+
+ *
+ * \endverbatim
+ *
+ * This function defines the interior style  for subsequent fill area output
+ * primitives. The default interior style is HOLLOW.
+ */
 void gr_setfillintstyle(int style)
 {
   check_autoinit;
@@ -2435,6 +2977,18 @@ void gr_setfillintstyle(int style)
     gr_writestream("<setfillintstyle intstyle=\"%d\"/>\n", style);
 }
 
+/*!
+ * Set the fill area interior style to be used for fill areas.
+ *
+ * \param[in] index The fill style index to be used
+ *
+ * This function specifies an index when PATTERN fill or HATCH fill is
+ * requested by the gr_setfillintstyle function. If the interior style is set
+ * to PATTERN, the fill style index points to a device-independent pattern
+ * table. If interior style is set to HATCH the fill style index indicates
+ * different hatch styles. If HOLLOW or SOLID is specified for the interior
+ * style, the fill style index is unused.
+ */
 void gr_setfillstyle(int index)
 {
   check_autoinit;
@@ -2447,6 +3001,15 @@ void gr_setfillstyle(int index)
     gr_writestream("<setfillstyle style=\"%d\"/>\n", index);
 }
 
+/*!
+ * Sets the current fill area color index.
+ *
+ * \param[in] color The fill area color index (COLOR < 1256)
+ *
+ * This function defines the color of subsequent fill area output primitives.
+ * GR uses the default foreground color (black=1) for the default fill area
+ * color index.
+ */
 void gr_setfillcolorind(int color)
 {
   check_autoinit;
@@ -2486,6 +3049,15 @@ void setcolorrep(int index, double red, double green, double blue)
   foreach_activews((void (*)(int, void *)) setcolor, (void *) &color);
 }
 
+/*!
+ * Redefine an existing color index representation by specifying an RGB color
+ * triplet.
+ *
+ * \param[in] index Color index in the range 0 to 1256
+ * \param[in] red Red intensity in the range 0.0 to 1.0
+ * \param[in] green Green intensity in the range 0.0 to 1.0
+ * \param[in] blue Blue intensity in the range 0.0 to 1.0
+ */
 void gr_setcolorrep(int index, double red, double green, double blue)
 {
   check_autoinit;
@@ -2498,6 +3070,40 @@ void gr_setcolorrep(int index, double red, double green, double blue)
       index, red, green, blue);
 }
 
+/*!
+ * Set the type of transformation to be used for subsequent GR output
+ * primitives.
+ *
+ * \param[in] options Scale specification (see table)
+ *
+ * \verbatim embed:rst:leading-asterisk
+ *
+ * +---------------+--------------------+
+ * |OPTION_X_LOG   |Logarithmic X-axis  |
+ * +---------------+--------------------+
+ * |OPTION_Y_LOG   |Logarithmic Y-axis  |
+ * +---------------+--------------------+
+ * |OPTION_Z_LOG   |Logarithmic Z-axis  |
+ * +---------------+--------------------+
+ * |OPTION_FLIP_X  |Flip X-axis         |
+ * +---------------+--------------------+
+ * |OPTION_FLIP_Y  |Flip Y-axis         |
+ * +---------------+--------------------+
+ * |OPTION_FLIP_Z  |Flip Z-axis         |
+ * +---------------+--------------------+
+ *
+ * \endverbatim
+ *
+ * This function defines the current transformation according to the given scale
+ * specification which may be or'ed together using any of the above options. GR
+ * uses these options for all subsequent output primitives until another value
+ * is provided. The scale options are used to transform points from an abstract
+ * logarithmic or semi-logarithmic coordinate system, which may be flipped along
+ * each axis, into the world coordinate system.
+ *
+ * \note When applying a logarithmic transformation to a specific axis, the
+ * system assumes that the axes limits are greater than zero.
+ */
 int gr_setscale(int options)
 {
   int result = 0;
@@ -2519,6 +3125,25 @@ void gr_inqscale(int *options)
   *options = lx.scale_options;
 }
 
+/*!
+ * Establishes a window, or rectangular subspace, of world coordinates to be
+ * plotted. If you desire log scaling or mirror-imaging of axes, use the
+ * gr_setscale function.
+ *
+ * \param[in] xmin The left horizontal coordinate of the window (xmin < xmax).
+ * \param[in] xmax The right horizontal coordinate of the window (xmin < xmax).
+ * \param[in] ymin The bottom vertical coordinate of the window (ymin < ymax).
+ * \param[in] ymax The top vertical coordinate of the window (ymin < ymax).
+ *
+ * This function defines the rectangular portion of the World Coordinate space
+ * (WC) to be associated with the specified normalization transformation. The
+ * WC window and the Normalized Device Coordinates (NDC) viewport define the
+ * normalization transformation through which all output primitives are mapped.
+ * The WC window is mapped onto the rectangular NDC viewport which is, in turn,
+ * mapped onto the display surface of the open and active workstation, in device
+ * coordinates. By default, GR uses the range [0,1] x [0,1], in world
+ * coordinates, as the normalization transformation window.
+ */
 void gr_setwindow(double xmin, double xmax, double ymin, double ymax)
 {
   int tnr = WC;
@@ -2549,6 +3174,26 @@ void gr_inqwindow(double *xmin, double *xmax, double *ymin, double *ymax)
   *ymax = lx.ymax;
 }
 
+/*!
+ * Establishes a rectangular subspace of normalized device coordinates.
+ *
+ * \param[in] xmin The left horizontal coordinate of the viewport
+ *                 (0 <= xmin < xmax).
+ * \param[in] xmax The right horizontal coordinate of the viewport
+ *                 (xmin < xmax <= 1).
+ * \param[in] ymin The bottom vertical coordinate of the viewport
+ *                 (0 <= ymin < ymax).
+ * \param[in] ymax The top vertical coordinate of the viewport
+ *                 (ymin < ymax <= 1).
+ *
+ * This function defines the rectangular portion of the Normalized Device
+ * Coordinate (NDC) space to be associated with the specified normalization
+ * transformation. The NDC viewport and World Coordinate (WC) window define
+ * the normalization transformation through which all output primitives pass.
+ * The WC window is mapped onto the rectangular NDC viewport which is, in turn,
+ * mapped onto the display surface of the open and active workstation, in device
+ * coordinates.
+ */
 void gr_setviewport(double xmin, double xmax, double ymin, double ymax)
 {
   int tnr = WC;
@@ -2584,6 +3229,22 @@ void gr_inqviewport(double *xmin, double *xmax, double *ymin, double *ymax)
   *ymax = vymax;
 }
 
+/*!
+ * Select a predefined transformation from world coordinates to normalized
+ * device coordinates.
+ *
+ * \param[in] transform A normalization transformation number.
+ *
+ * \verbatim embed:rst:leading-asterisk
+ *
+ * +------+----------------------------------------------------------------------------------------------------+
+ * |     0|Selects the identity transformation in which both the window and viewport have the range of 0 to 1  |
+ * +------+----------------------------------------------------------------------------------------------------+
+ * |  >= 1|Selects a normalization transformation as defined by `setwindow` and `setviewport`                  |
+ * +------+----------------------------------------------------------------------------------------------------+
+ *
+ * \endverbatim
+ */
 void gr_selntran(int transform)
 {
   check_autoinit;
@@ -2594,6 +3255,28 @@ void gr_selntran(int transform)
     gr_writestream("<selntran transform=\"%d\"/>\n", transform);
 }
 
+/*!
+ * Set the clipping indicator.
+ *
+ * \param[in] indicator An indicator specifying whether clipping is on or off.
+ *
+ * \verbatim embed:rst:leading-asterisk
+ *
+ * +----+---------------------------------------------------------------+
+ * |   0|Clipping is off. Data outside of the window will be drawn.     |
+ * +----+---------------------------------------------------------------+
+ * |   1|Clipping is on. Data outside of the window will not be drawn.  |
+ * +----+---------------------------------------------------------------+
+ *
+ * \endverbatim
+ *
+ * This function enables or disables clipping of the image drawn in the current
+ * window. Clipping is defined as the removal of those portions of the graph
+ * that lie outside of the defined viewport. If clipping is on, GR does not
+ * draw generated output primitives past the viewport boundaries. If clipping
+ * is off, primitives may exceed the viewport boundaries, and they will be
+ * drawn to the edge of the workstation window. By default, clipping is on.
+ */
 void gr_setclip(int indicator)
 {
   check_autoinit;
@@ -2612,6 +3295,25 @@ void wswindow(int workstation_id, rect_t *rect)
   gks_set_ws_window(wkid, rect->xmin, rect->xmax, rect->ymin, rect->ymax);
 }
 
+/*!
+ * Set the area of the NDC viewport that is to be drawn in the workstation
+ * window.
+ *
+ * \param[in] xmin The left horizontal coordinate of the workstation window
+ *                 (0 <= xmin < xmax).
+ * \param[in] xmax The right horizontal coordinate of the workstation window
+ *                 (xmin < xmax <= 1).
+ * \param[in] ymin The bottom vertical coordinate of the workstation window
+ *                 (0 <= ymin < ymax).
+ * \param[in] ymax The top vertical coordinate of the workstation window
+ *                 (ymin < ymax <= 1).
+ *
+ * This function defines the rectangular area of the Normalized Device
+ * Coordinate space to be output to the device. By default, the workstation
+ * transformation will map the range [0,1] x [0,1] in NDC onto the largest
+ * square on the workstation’s display surface. The aspect ratio of the
+ * workstation window is maintained at 1 to 1.
+ */
 void gr_setwswindow(double xmin, double xmax, double ymin, double ymax)
 {
   rect_t rect;
@@ -2639,6 +3341,19 @@ void wsviewport(int workstation_id, rect_t *rect)
   gks_set_ws_viewport(wkid, rect->xmin, rect->xmax, rect->ymin, rect->ymax);
 }
 
+/*!
+ * Define the size of the workstation graphics window in meters.
+ *
+ * \param[in] xmin The left horizontal coordinate of the workstation window.
+ * \param[in] xmax The right horizontal coordinate of the workstation window.
+ * \param[in] ymin The bottom vertical coordinate of the workstation window.
+ * \param[in] ymax The top vertical coordinate of the workstation window.
+ *
+ * This function places a workstation window on the display of the specified
+ * size in meters. This command allows the workstation window to be accurately
+ * sized for a display or hardcopy device, and is often useful for sizing
+ * graphs for desktop publishing applications.
+ */
 void gr_setwsviewport(double xmin, double xmax, double ymin, double ymax)
 {
   rect_t rect;
@@ -2758,6 +3473,22 @@ void gr_updategks(void)
     }
 }
 
+/*!
+ * Set the abstract Z-space used for mapping three-dimensional output primitives
+ * into the current world coordinate space.
+ *
+ * \param[in] zmin Minimum value for the Z-axis.
+ * \param[in] zmax Maximum value for the Z-axis.
+ * \param[in] rotation Angle for the rotation of the X axis, in degrees.
+ * \param[in] tilt Viewing angle of the Z axis, in degrees.
+ *
+ * This function establishes the limits of an abstract Z-axis and defines the
+ * angles for rotation and for the viewing angle (tilt) of a simulated
+ * three-dimensional graph, used for mapping corresponding output primitives
+ * into the current window. These settings are used for all subsequent
+ * three-dimensional output primitives until other values are specified. Angles
+ * of rotation and viewing angle must be specified between 0° and 90°.
+ */
 int gr_setspace(double zmin, double zmax, int rotation, int tilt)
 {
   if (zmin < zmax)
@@ -2881,6 +3612,94 @@ void start_pline3d(double x, double y, double z)
   pline3d(x, y, z);
 }
 
+/*!
+ * Draw a text at position `x`, `y` using the current text attributes. Strings
+ * can be defined to create basic mathematical expressions and Greek letters.
+ *
+ * \param[in] x The X coordinate of starting position of the text string
+ * \param[in] y The Y coordinate of starting position of the text string
+ * \param[in] string The text to be drawn
+ *
+ * The values for X and Y are in normalized device coordinates.
+ * The attributes that control the appearance of text are text font and
+ * precision, character expansion factor, character spacing, text color index,
+ * character height, character up vector, text path and text alignment.
+ *
+ * The character string is interpreted to be a simple mathematical formula.
+ * The following notations apply:
+ *
+ * Subscripts and superscripts: These are indicated by carets ('^') and
+ * underscores ('_'). If the sub/superscript contains more than one character,
+ * it must be enclosed in curly braces ('{}').
+ *
+ * Fractions are typeset with A '/' B, where A stands for the numerator and B
+ * for the denominator.
+ *
+ * To include a Greek letter you must specify the corresponding keyword after a
+ * backslash ('\') character. The text translator produces uppercase or
+ * lowercase Greek letters depending on the case of the keyword.
+
+ * \verbatim embed:rst:leading-asterisk
+ *
+ * +----------------------------------+--------+
+ * |Letter                            |Keyword |
+ * +----------------------------------+--------+
+ * |:math:`A`      :math:`\alpha`     |alpha   |
+ * +----------------------------------+--------+
+ * |:math:`B` :math:`\beta`           |beta    |
+ * +----------------------------------+--------+
+ * |:math:`\Gamma` :math:`\gamma`     |gamma   |
+ * +----------------------------------+--------+
+ * |:math:`\Delta` :math:`\delta`     |delta   |
+ * +----------------------------------+--------+
+ * |:math:`E` :math:`\epsilon`        |epsilon |
+ * +----------------------------------+--------+
+ * |:math:`Z` :math:`\zeta`           |zeta    |
+ * +----------------------------------+--------+
+ * |:math:`H` :math:`\eta`            |eta     |
+ * +----------------------------------+--------+
+ * |:math:`\Theta` :math:`\theta`     |theta   |
+ * +----------------------------------+--------+
+ * |:math:`I` :math:`\iota`           |iota    |
+ * +----------------------------------+--------+
+ * |:math:`K` :math:`\kappa`          |kappa   |
+ * +----------------------------------+--------+
+ * |:math:`\Lambda` :math:`\lambda`   |lambda  |
+ * +----------------------------------+--------+
+ * |:math:`M` :math:`\mu`             |mu      |
+ * +----------------------------------+--------+
+ * |:math:`N` :math:`\nu`             |v       |
+ * +----------------------------------+--------+
+ * |:math:`\Xi` :math:`\xi`           |xi      |
+ * +----------------------------------+--------+
+ * |:math:`O` :math:`o`               |omicron |
+ * +----------------------------------+--------+
+ * |:math:`\Pi` :math:`\pi`           |pi      |
+ * +----------------------------------+--------+
+ * |:math:`P` :math:`\rho`            |rho     |
+ * +----------------------------------+--------+
+ * |:math:`\Sigma` :math:`\sigma`     |sigma   |
+ * +----------------------------------+--------+
+ * |:math:`T` :math:`\tau`            |tau     |
+ * +----------------------------------+--------+
+ * |:math:`\Upsilon` :math:`\upsilon` |upsilon |
+ * +----------------------------------+--------+
+ * |:math:`\Phi` :math:`\phi`         |phi     |
+ * +----------------------------------+--------+
+ * |:math:`X` :math:`\chi`            |chi     |
+ * +----------------------------------+--------+
+ * |:math:`\Psi` :math:`\psi`         |psi     |
+ * +----------------------------------+--------+
+ * |:math:`\Omega` :math:`\omega`     |omega   |
+ * +----------------------------------+--------+
+ *
+ * \endverbatim
+ *
+ * For more sophisticated mathematical formulas, you should use the gr_mathtex
+ * function.
+ *
+ * Note: 'v' is a replacement for 'nu' which would conflict with '\n' (newline)
+ */
 int gr_textext(double x, double y, char *string)
 {
   int errind, tnr, result;
@@ -3310,6 +4129,38 @@ void gr_axeslbl(double x_tick, double y_tick, double x_org, double y_org,
       x_tick, y_tick, x_org, y_org, major_x, major_y, tick_size);
 }
 
+/*!
+ * Draw X and Y coordinate axes with linearly and/or logarithmically spaced
+ * tick marks.
+ *
+ * \param[in] x_tick The interval between minor tick marks on the X axis.
+ * \param[in] y_tick The interval between minor tick marks on the Y axis.
+ * \param[in] x_org The world coordinate of the origin (point of intersection)
+ *                  of the X axis.
+ * \param[in] y_org The world coordinate of the origin (point of intersection)
+ *                  of the Y axis.
+ * \param[in] major_x Unitless integer value specifying the number of minor tick
+ *                    intervals between major tick marks on the X axis. Values
+ *                    of 0 or 1 imply no minor ticks. Negative values specify no
+ *                    labels will be drawn for the associated axis.
+ * \param[in] major_y Unitless integer value specifying the number of minor tick
+ *                    intervals between major tick marks on the Y axis. Values
+ *                    of 0 or 1 imply no minor ticks. Negative values specify no
+ *                    labels will be drawn for the associated axis.
+ * \param[in] tick_size The length of minor tick marks specified in a normalized
+ *                      device coordinate unit. Major tick marks are twice as
+ *                      long as minor tick marks. A negative value reverses the
+ *                      tick marks on the axes from inward facing to outward
+ *                      facing (or vice versa).
+ *
+ * Tick marks are positioned along each axis so that major tick marks fall on
+ * the axes origin (whether visible or not). Major tick marks are labeled with
+ * the corresponding data values. Axes are drawn according to the scale of the
+ * window. Axes and tick marks are drawn using solid lines; line color and width
+ * can be modified using the gr_setlinetype and gr_setlinewidth functions. Axes
+ * are drawn according to the linear or logarithmic transformation established
+ * by the gr_setscale function.
+ */
 void gr_axes(double x_tick, double y_tick, double x_org, double y_org,
              int major_x, int major_y, double tick_size)
 {
@@ -3330,6 +4181,29 @@ void grid_line(double x0, double y0, double x1, double y1, int color, int major)
   end_pline();
 }
 
+/*!
+ * Draw a linear and/or logarithmic grid.
+ *
+ * \param[in] x_tick The length in world coordinates of the interval between
+ *                   minor grid lines in X direction.
+ * \param[in] y_tick The length in world coordinates of the interval between
+ *                   minor grid lines in Y direction.
+ * \param[in] x_org The world coordinate of the origin (point of intersection)
+ *                  of the X axis.
+ * \param[in] y_org The world coordinate of the origin (point of intersection)
+ *                  of the Y axis.
+ * \param[in] major_x Unitless integer value specifying the number of minor
+ *                    grid lines between major grid lines on the X axis. Values
+ *                    of 0 or 1 imply no grid lines.
+ * \param[in] major_y Unitless integer value specifying the number of minor
+ *                    grid lines between major grid lines on the Y axis. Values
+ *                    of 0 or 1 imply no grid lines.
+ *
+ * Major grid lines correspond to the axes origin and major tick marks whether
+ * visible or not. Minor grid lines are drawn at points equal to minor tick
+ * marks. Major grid lines are drawn using black lines and minor grid lines are
+ * drawn using gray lines.
+ */
 void gr_grid(double x_tick, double y_tick, double x_org, double y_org,
              int major_x, int major_y)
 {
@@ -3512,6 +4386,36 @@ void grid_line3d(double x0, double y0, double z0,
   end_pline();
 }
 
+/*!
+ * Draw a linear and/or logarithmic grid.
+ *
+ * \param[in] x_tick The length in world coordinates of the interval between
+ *                   minor grid lines in X direction.
+ * \param[in] y_tick The length in world coordinates of the interval between
+ *                   minor grid lines in Y direction.
+ * \param[in] z_tick The length in world coordinates of the interval between
+ *                   minor grid lines in Z direction.
+ * \param[in] x_org The world coordinate of the origin (point of intersection)
+ *                  of the X axis.
+ * \param[in] y_org The world coordinate of the origin (point of intersection)
+ *                  of the Y axis.
+ * \param[in] z_org The world coordinate of the origin (point of intersection)
+ *                  of the Z axis.
+ * \param[in] major_x Unitless integer value specifying the number of minor
+ *                    grid lines between major grid lines on the X axis. Values
+ *                    of 0 or 1 imply no grid lines.
+ * \param[in] major_y Unitless integer value specifying the number of minor
+ *                    grid lines between major grid lines on the Y axis. Values
+ *                    of 0 or 1 imply no grid lines.
+ * \param[in] major_z Unitless integer value specifying the number of minor
+ *                    grid lines between major grid lines on the Z axis. Values
+ *                    of 0 or 1 imply no grid lines.
+ *
+ * Major grid lines correspond to the axes origin and major tick marks whether
+ * visible or not. Minor grid lines are drawn at points equal to minor tick
+ * marks. Major grid lines are drawn using black lines and minor grid lines are
+ * drawn using gray lines.
+ */
 void gr_grid3d(double x_tick, double y_tick, double z_tick,
                double x_org, double y_org, double z_org,
                int major_x, int major_y, int major_z)
@@ -3600,8 +4504,9 @@ void gr_grid3d(double x_tick, double y_tick, double z_tick,
         {
           check_tick_marks(z_min, z_max, z_tick, 'Z')
 
-          i = isucc(z_min / z_tick);
-          zi = i * z_tick;
+          i = 0;
+          z0 = succ(z_min / z_tick) * z_tick;
+          zi = z0;
 
           /* draw horizontal grid lines */
 
@@ -3621,7 +4526,7 @@ void gr_grid3d(double x_tick, double y_tick, double z_tick,
                 }
 
               i++;
-              zi = i * z_tick;
+              zi = z0 + i * z_tick;
             }
         }
     }
@@ -3666,8 +4571,9 @@ void gr_grid3d(double x_tick, double y_tick, double z_tick,
         {
           check_tick_marks(y_min, y_max, y_tick, 'Y')
 
-          i = isucc(y_min / y_tick);
-          yi = i * y_tick;
+          i = 0;
+          y0 = succ(y_min / y_tick) * y_tick;
+          yi = y0;
 
           /* draw horizontal grid lines */
 
@@ -3687,7 +4593,7 @@ void gr_grid3d(double x_tick, double y_tick, double z_tick,
                 }
 
               i++;
-              yi = i * y_tick;
+              yi = y0 + i * y_tick;
             }
         }
     }
@@ -3732,8 +4638,9 @@ void gr_grid3d(double x_tick, double y_tick, double z_tick,
         {
           check_tick_marks(x_min, x_max, x_tick, 'X')
 
-          i = isucc(x_min / x_tick);
-          xi = i * x_tick;
+          i = 0;
+          x0 = succ(x_min / x_tick) * x_tick;
+          xi = x0;
 
           /* draw vertical grid lines */
 
@@ -3753,7 +4660,7 @@ void gr_grid3d(double x_tick, double y_tick, double z_tick,
                 }
 
               i++;
-              xi = i * x_tick;
+              xi = x0 + i * x_tick;
             }
         }
     }
@@ -3773,6 +4680,15 @@ void gr_grid3d(double x_tick, double y_tick, double z_tick,
       x_tick, y_tick, z_tick, x_org, y_org, z_org, major_x, major_y, major_z);
 }
 
+/*!
+ * Draw a standard vertical error bar graph.
+ *
+ * \param[in] n The number of points
+ * \param[in] px A pointer to the X coordinates
+ * \param[in] py A pointer to the Y coordinates
+ * \param[in] e1 A pointer to the absolute values of the lower error bar data
+ * \param[in] e2 A pointer to the absolute values of the upper error bar data
+ */
 void gr_verrorbars(int n, double *px, double *py, double *e1, double *e2)
 {
   int errind, i;
@@ -3824,6 +4740,15 @@ void gr_verrorbars(int n, double *px, double *py, double *e1, double *e2)
     }
 }
 
+/*!
+ * Draw a standard horizontal error bar graph.
+ *
+ * \param[in] n The number of points
+ * \param[in] px A pointer to the X coordinates
+ * \param[in] py A pointer to the Y coordinates
+ * \param[in] e1 A pointer to the absolute values of the lower error bar data
+ * \param[in] e2 A pointer to the absolute values of the upper error bar data
+ */
 void gr_herrorbars(int n, double *px, double *py, double *e1, double *e2)
 {
   int errind, i;
@@ -3968,6 +4893,19 @@ void clip3d(double *x0, double *x1, double *y0, double *y1, double *z0,
   *visible = 1;
 }
 
+/*!
+ * Draw a 3D curve using the current line attributes, starting from the
+ * first data point and ending at the last data point.
+ *
+ * \param[in] n The number of points
+ * \param[in] px A pointer to the X coordinates
+ * \param[in] py A pointer to the Y coordinates
+ * \param[in] pz A pointer to the Z coordinates
+ *
+ * The values for x, y and z are in world coordinates. The attributes that
+ * control the appearance of a polyline are linetype, linewidth and color
+ * index.
+ */
 void gr_polyline3d(int n, double *px, double *py, double *pz)
 {
   int errind, clsw, i;
@@ -4057,6 +4995,18 @@ int cmp(const void *a, const void *b)
   return db - da;
 }
 
+/*!
+ * Draw marker symbols centered at the given 3D data points.
+ *
+ * \param[in] n The number of points
+ * \param[in] px A pointer to the X coordinates
+ * \param[in] py A pointer to the Y coordinates
+ * \param[in] pz A pointer to the Z coordinates
+ *
+ * The values for x, y and z are in world coordinates. The attributes
+ * that control the appearance of a polymarker are marker type, marker size
+ * scale factor and color index.
+ */
 void gr_polymarker3d(int n, double *px, double *py, double *pz)
 {
   int errind, clsw, i;
@@ -4159,6 +5109,45 @@ void text3d(double x, double y, double z, char *chars)
                    x, y, z, chars);
 }
 
+/*!
+ * Draw X, Y and Z coordinate axes with linearly and/or logarithmically
+ * spaced tick marks.
+ *
+ * \param[in] x_tick The length in world coordinates of the interval between
+ *                   minor grid lines in X direction.
+ * \param[in] y_tick The length in world coordinates of the interval between
+ *                   minor grid lines in Y direction.
+ * \param[in] z_tick The length in world coordinates of the interval between
+ *                   minor grid lines in Z direction.
+ * \param[in] x_org The world coordinate of the origin (point of intersection)
+ *                  of the X axis.
+ * \param[in] y_org The world coordinate of the origin (point of intersection)
+ *                  of the Y axis.
+ * \param[in] z_org The world coordinate of the origin (point of intersection)
+ *                  of the Z axis.
+ * \param[in] major_x Unitless integer value specifying the number of minor
+ *                    grid lines between major grid lines on the X axis. Values
+ *                    of 0 or 1 imply no grid lines.
+ * \param[in] major_y Unitless integer value specifying the number of minor
+ *                    grid lines between major grid lines on the Y axis. Values
+ *                    of 0 or 1 imply no grid lines.
+ * \param[in] major_z Unitless integer value specifying the number of minor
+ *                    grid lines between major grid lines on the Z axis. Values
+ *                    of 0 or 1 imply no grid lines.
+ * \param[in] tick_size The length of minor tick marks specified in a normalized
+ *                      device coordinate unit. Major tick marks are twice as
+ *                      long as minor tick marks. A negative value reverses the
+ *                      tick marks on the axes from inward facing to outward
+ *                      facing (or vice versa).
+ *
+ * Tick marks are positioned along each axis so that major tick marks fall on
+ * the axes origin (whether visible or not). Major tick marks are labeled with
+ * the corresponding data values. Axes are drawn according to the scale of the
+ * window. Axes and tick marks are drawn using solid lines; line color and width
+ * can be modified using the gr_setlinetype and gr_setlinewidth functions. Axes
+ * are drawn according to the linear or logarithmic transformation established
+ * by the gr_setscale function.
+ */
 void gr_axes3d(double x_tick, double y_tick, double z_tick,
                double x_org, double y_org, double z_org,
                int major_x, int major_y, int major_z, double tick_size)
@@ -4670,6 +5659,13 @@ void gr_axes3d(double x_tick, double y_tick, double z_tick,
       major_x, major_y, major_z, tick_size);
 }
 
+/*!
+ * Display axis titles just outside of their respective axes.
+ *
+ * \param[in] x_title The text to be displayed on the X axis
+ * \param[in] y_title The text to be displayed on the Y axis
+ * \param[in] z_title The text to be displayed on the Z axis
+ */
 void gr_titles3d(char *x_title, char *y_title, char *z_title)
 {
   int errind, tnr;
@@ -5353,6 +6349,40 @@ void get_intensity(
      oddnormal[2] * negated_norm[2]) * 0.8 + 0.2;
 }
 
+/*!
+ * Draw a three-dimensional surface plot for the given data points.
+ *
+ * \param[in] nx The number of points along the X axis
+ * \param[in] ny The number of points along the Y axis
+ * \param[in] px A pointer to the X coordinates
+ * \param[in] py A pointer to the Y coordinates
+ * \param[in] pz A pointer to the Z coordinates
+ * \param[in] option Surface display option (see table)
+ *
+ * x and y define a grid. z is a singly dimensioned array containing at least
+ * nx * ny data points. z describes the surface height at each point on the
+ * grid. Data is ordered as shown in the following table:
+ *
+ * \verbatim embed:rst:leading-asterisk
+ *
+ * +------------------+--+--------------------------------------------------------------+
+ * |LINES             | 0|Use X Y polylines to denote the surface                       |
+ * +------------------+--+--------------------------------------------------------------+
+ * |MESH              | 1|Use a wire grid to denote the surface                         |
+ * +------------------+--+--------------------------------------------------------------+
+ * |FILLED_MESH       | 2|Applies an opaque grid to the surface                         |
+ * +------------------+--+--------------------------------------------------------------+
+ * |Z_SHADED_MESH     | 3|Applies Z-value shading to the surface                        |
+ * +------------------+--+--------------------------------------------------------------+
+ * |COLORED_MESH      | 4|Applies a colored grid to the surface                         |
+ * +------------------+--+--------------------------------------------------------------+
+ * |CELL_ARRAY        | 5|Applies a grid of individually-colored cells to the surface   |
+ * +------------------+--+--------------------------------------------------------------+
+ * |SHADED_MESH       | 6|Applies light source shading to the 3-D surface               |
+ * +------------------+--+--------------------------------------------------------------+
+ *
+ * \endverbatim
+ */
 void gr_surface(int nx, int ny, double *px, double *py, double *pz, int option)
 {
   int errind, ltype, coli, int_style;
@@ -5771,6 +6801,14 @@ int compar(const void *a, const void *b)
   return ret;
 }
 
+/*!
+ * Draw a triangular surface plot for the given data points.
+ *
+ * \param[in] n The number of points
+ * \param[in] px A pointer to the X coordinates
+ * \param[in] py A pointer to the Y coordinates
+ * \param[in] pz A pointer to the Z coordinates
+ */
 void gr_trisurface(int n, double *px, double *py, double *pz)
 {
   int errind, coli, int_style;
@@ -6026,6 +7064,22 @@ void rebin(int nx, int ny, double *px, double *py, double *pz,
   gr_interp2(nx, ny, px, py, pz, *nxq, *nyq, x, y, z, 1, 0.0);
 }
 
+/*!
+ * Draw contours of a three-dimensional data set whose values are specified over a
+ rectangular mesh. Contour lines may optionally be labeled.
+ *
+ * \param[in] nx The number of points along the X axis
+ * \param[in] ny The number of points along the Y axis
+ * \param[in] nh The number of height values
+ * \param[in] px A pointer to the X coordinates
+ * \param[in] py A pointer to the Y coordinates
+ * \param[in] h A pointer to the height values
+ * \param[in] pz A pointer to the Z coordinates
+ * \param[in] major_h Directs GR to label contour lines. For example, a value of
+ *                    3 would label every third line. A value of 1 will label
+ *                    every line. A value of 0 produces no labels. To produce
+ *                    colored contour lines, add an offset of 1000 to major_h
+ */
 void gr_contour(
   int nx, int ny, int nh, double *px, double *py, double *h, double *pz,
   int major_h)
@@ -6102,6 +7156,16 @@ void gr_contour(
     }
 }
 
+/*!
+ * Draw a contour plot for the given triangle mesh.
+ *
+ * \param[in] npoints The number of points
+ * \param[in] x A pointer to the X coordinates
+ * \param[in] y A pointer to the Y coordinates
+ * \param[in] z A pointer to the Z coordinates
+ * \param[in] nlevels The number of contour levels
+ * \param[in] levels A pointer to the contour levels
+ */
 void gr_tricontour(
   int npoints, double *x, double *y, double *z, int nlevels, double *levels)
 {
@@ -6600,16 +7664,27 @@ double gr_tick(double amin, double amax)
                          difference between the minimum and maximum value */
 }
 
+static
+int check_range(double a, double b)
+{
+  double d;
+
+  if (a != 0)
+    d = a;
+  else if (b != 0)
+    d = b;
+  else
+    d = 1;
+
+  return fabs((b - a) / d) * 0.000001 > DBL_EPSILON;
+}
+
 int gr_validaterange(double amin, double amax)
 {
   /* Check whether the given coordinate range does not lead
-     to loss of precision in subsequent GR functions. It must
-     be ensured that there are at least 4 significant digits
+     to loss of precision in subsequent GR functions, e.g.
      when applying normalization or device transformations. */
-  if (amin < amax && fabs(amax - amin) * 0.0001 > DBL_EPSILON)
-    return 1;
-  else
-    return 0;
+  return check_range(amin, amax);
 }
 
 #ifdef _MSC_VER
@@ -6699,6 +7774,41 @@ bmp, eps, fig, html, jpeg, mov, pdf, pgf, png, ps, svg, tiff or wmf\n", type);
   return wstype;
 }
 
+/*!
+ * Open and activate a print device.
+ *
+ * \param[in] pathname Filename for the print device.
+ *
+ * This function opens an additional graphics output device. The device type is
+ * obtained from the given file extension. The following file types are
+ * supported:
+ *
+ * \verbatim embed:rst:leading-asterisk
+ *
+ * The following file types are supported:
+ *
+ * +-------------+---------------------------------------+
+ * |.ps, .eps    |PostScript                             |
+ * +-------------+---------------------------------------+
+ * |.pdf         |Portable Document Format               |
+ * +-------------+---------------------------------------+
+ * |.bmp         |Windows Bitmap (BMP)                   |
+ * +-------------+---------------------------------------+
+ * |.jpeg, .jpg  |JPEG image file                        |
+ * +-------------+---------------------------------------+
+ * |.png         |Portable Network Graphics file (PNG)   |
+ * +-------------+---------------------------------------+
+ * |.tiff, .tif  |Tagged Image File Format (TIFF)        |
+ * +-------------+---------------------------------------+
+ * |.fig         |Xfig vector graphics file              |
+ * +-------------+---------------------------------------+
+ * |.svg         |Scalable Vector Graphics               |
+ * +-------------+---------------------------------------+
+ * |.wmf         |Windows Metafile                       |
+ * +-------------+---------------------------------------+
+ *
+ * \endverbatim
+ */
 void gr_beginprint(char *pathname)
 {
   int wkid = 6, wstype = 62;
@@ -6722,6 +7832,82 @@ void gr_beginprint(char *pathname)
     fprintf(stderr, "print device already activated\n");
 }
 
+/*!
+ * Open and activate a print device with the given layout attributes.
+ *
+ * \param[in] pathname Filename for the print device.
+ * \param[in] mode Output mode (Color, GrayScale)
+ * \param[in] format Output format (see table)
+ * \param[in] orientation Page orientation (Landscape, Portait)
+ *
+ * \verbatim embed:rst:leading-asterisk
+ *
+ * The available formats are:
+ *
+ * +-----------+---------------+
+ * |A4         |0.210 x 0.297  |
+ * +-----------+---------------+
+ * |B5         |0.176 x 0.250  |
+ * +-----------+---------------+
+ * |Letter     |0.216 x 0.279  |
+ * +-----------+---------------+
+ * |Legal      |0.216 x 0.356  |
+ * +-----------+---------------+
+ * |Executive  |0.191 x 0.254  |
+ * +-----------+---------------+
+ * |A0         |0.841 x 1.189  |
+ * +-----------+---------------+
+ * |A1         |0.594 x 0.841  |
+ * +-----------+---------------+
+ * |A2         |0.420 x 0.594  |
+ * +-----------+---------------+
+ * |A3         |0.297 x 0.420  |
+ * +-----------+---------------+
+ * |A5         |0.148 x 0.210  |
+ * +-----------+---------------+
+ * |A6         |0.105 x 0.148  |
+ * +-----------+---------------+
+ * |A7         |0.074 x 0.105  |
+ * +-----------+---------------+
+ * |A8         |0.052 x 0.074  |
+ * +-----------+---------------+
+ * |A9         |0.037 x 0.052  |
+ * +-----------+---------------+
+ * |B0         |1.000 x 1.414  |
+ * +-----------+---------------+
+ * |B1         |0.500 x 0.707  |
+ * +-----------+---------------+
+ * |B10        |0.031 x 0.044  |
+ * +-----------+---------------+
+ * |B2         |0.500 x 0.707  |
+ * +-----------+---------------+
+ * |B3         |0.353 x 0.500  |
+ * +-----------+---------------+
+ * |B4         |0.250 x 0.353  |
+ * +-----------+---------------+
+ * |B6         |0.125 x 0.176  |
+ * +-----------+---------------+
+ * |B7         |0.088 x 0.125  |
+ * +-----------+---------------+
+ * |B8         |0.062 x 0.088  |
+ * +-----------+---------------+
+ * |B9         |0.044 x 0.062  |
+ * +-----------+---------------+
+ * |C5E        |0.163 x 0.229  |
+ * +-----------+---------------+
+ * |Comm10E    |0.105 x 0.241  |
+ * +-----------+---------------+
+ * |DLE        |0.110 x 0.220  |
+ * +-----------+---------------+
+ * |Folio      |0.210 x 0.330  |
+ * +-----------+---------------+
+ * |Ledger     |0.432 x 0.279  |
+ * +-----------+---------------+
+ * |Tabloid    |0.279 x 0.432  |
+ * +-----------+---------------+
+ *
+ * \endverbatim
+ */
 void gr_beginprintext(
   char *pathname, char *mode, char *format, char *orientation)
 {
@@ -6838,6 +8024,14 @@ void gr_wc3towc(double *x, double *y, double *z)
   apply_world_xform(x, y, z);
 }
 
+/*!
+ * Draw a rectangle using the current line attributes.
+ *
+ * \param[in] xmin Left edge of the rectangle
+ * \param[in] xmax Right edge of the rectangle
+ * \param[in] ymin Bottom edge of the rectangle
+ * \param[in] ymax Upper edge of the rectangle
+ */
 void gr_drawrect(double xmin, double xmax, double ymin, double ymax)
 {
   double x[5], y[5];
@@ -6859,6 +8053,14 @@ void gr_drawrect(double xmin, double xmax, double ymin, double ymax)
       xmin, xmax, ymin, ymax);
 }
 
+/*!
+ * Draw a filled rectangle using the current fill attributes.
+ *
+ * \param[in] xmin Left edge of the rectangle
+ * \param[in] xmax Right edge of the rectangle
+ * \param[in] ymin Bottom edge of the rectangle
+ * \param[in] ymax Upper edge of the rectangle
+ */
 void gr_fillrect(double xmin, double xmax, double ymin, double ymax)
 {
   double x[4], y[4];
@@ -6878,6 +8080,20 @@ void gr_fillrect(double xmin, double xmax, double ymin, double ymax)
       xmin, xmax, ymin, ymax);
 }
 
+/*!
+ * Draw a circular or elliptical arc covering the specified rectangle.
+ *
+ * \param[in] xmin Left edge of the rectangle
+ * \param[in] xmax Right edge of the rectangle
+ * \param[in] ymin Bottom edge of the rectangle
+ * \param[in] ymax Upper edge of the rectangle
+ * \param[in] a1 The start angle
+ * \param[in] a2 The end angle
+ *
+ * The resulting arc begins at a1 and ends at a2 degrees. Angles are
+ * interpreted such that 0 degrees is at the 3 o'clock position. The center of
+ * the arc is the center of the given rectangle.
+ */
 void gr_drawarc(
   double xmin, double xmax, double ymin, double ymax, int a1, int a2)
 {
@@ -6914,6 +8130,20 @@ void gr_drawarc(
       xmin, xmax, ymin, ymax, a1, a2);
 }
 
+/*!
+ * Fill a circular or elliptical arc covering the specified rectangle.
+ *
+ * \param[in] xmin Left edge of the rectangle
+ * \param[in] xmax Right edge of the rectangle
+ * \param[in] ymin Bottom edge of the rectangle
+ * \param[in] ymax Upper edge of the rectangle
+ * \param[in] a1 The start angle
+ * \param[in] a2 The end angle
+ *
+ * The resulting arc begins at a1 and ends at a2 degrees. Angles are
+ * interpreted such that 0 degrees is at the 3 o'clock position. The center of
+ * the arc is the center of the given rectangle.
+ */
 void gr_fillarc(
   double xmin, double xmax, double ymin, double ymax, int a1, int a2)
 {
@@ -7013,6 +8243,36 @@ void cubic_bezier(double x[4], double y[4], int n)
     }
 }
 
+/*!
+ * Draw simple and compound outlines consisting of line segments and bezier
+ * curves.
+ *
+ * \param[in] n The number of vertices
+ * \param[in] vertices A pointer to the vertices
+ * \param[in] codes A pointer to the path codes
+ * \param[in] fill A flag indication whether resulting path is to be filled or
+ *                 not
+ *
+ * \verbatim embed:rst:leading-asterisk
+ *
+ * The following path codes are recognized:
+ *
+ * +----------+-----------------------------------------------------------+
+ * |      STOP|end the entire path                                        |
+ * +----------+-----------------------------------------------------------+
+ * |    MOVETO|move to the given vertex                                   |
+ * +----------+-----------------------------------------------------------+
+ * |    LINETO|draw a line from the current position to the given vertex  |
+ * +----------+-----------------------------------------------------------+
+ * |    CURVE3|draw a quadratic Bézier curve                              |
+ * +----------+-----------------------------------------------------------+
+ * |    CURVE4|draw a cubic Bézier curve                                  |
+ * +----------+-----------------------------------------------------------+
+ * | CLOSEPOLY|draw a line segment to the start point of the current path |
+ * +----------+-----------------------------------------------------------+
+ *
+ * \endverbatim
+ */
 void gr_drawpath(int n, vertex_t *vertices, unsigned char *codes, int fill)
 {
   int i, j = 0, code, nan = 0;
@@ -7086,6 +8346,56 @@ void gr_drawpath(int n, vertex_t *vertices, unsigned char *codes, int fill)
     }
 }
 
+/*!
+ * Set the arrow style to be used for subsequent arrow commands.
+ *
+ * \param[in] style The arrow style to be used
+ *
+ * This function defines the arrow style for subsequent arrow primitives.
+ * The default arrow style is 1.
+ *
+ * \verbatim embed:rst:leading-asterisk
+ *
+ * +---+----------------------------------+
+ * |  1|simple, single-ended              |
+ * +---+----------------------------------+
+ * |  2|simple, single-ended, acute head  |
+ * +---+----------------------------------+
+ * |  3|hollow, single-ended              |
+ * +---+----------------------------------+
+ * |  4|filled, single-ended              |
+ * +---+----------------------------------+
+ * |  5|triangle, single-ended            |
+ * +---+----------------------------------+
+ * |  6|filled triangle, single-ended     |
+ * +---+----------------------------------+
+ * |  7|kite, single-ended                |
+ * +---+----------------------------------+
+ * |  8|filled kite, single-ended         |
+ * +---+----------------------------------+
+ * |  9|simple, double-ended              |
+ * +---+----------------------------------+
+ * | 10|simple, double-ended, acute head  |
+ * +---+----------------------------------+
+ * | 11|hollow, double-ended              |
+ * +---+----------------------------------+
+ * | 12|filled, double-ended              |
+ * +---+----------------------------------+
+ * | 13|triangle, double-ended            |
+ * +---+----------------------------------+
+ * | 14|filled triangle, double-ended     |
+ * +---+----------------------------------+
+ * | 15|kite, double-ended                |
+ * +---+----------------------------------+
+ * | 16|filled kite, double-ended         |
+ * +---+----------------------------------+
+ * | 17|double line, single-ended         |
+ * +---+----------------------------------+
+ * | 18|double line, double-ended         |
+ * +---+----------------------------------+
+ *
+ * \endverbatim
+ */
 void gr_setarrowstyle(int style)
 {
   check_autoinit;
@@ -7097,6 +8407,14 @@ void gr_setarrowstyle(int style)
     gr_writestream("<setarrowstyle style=\"%d\"/>\n", style);
 }
 
+/*!
+ * Set the arrow size to be used for subsequent arrow commands.
+ *
+ * \param[in] size The arrow size to be used
+ *
+ * This function defines the arrow size for subsequent arrow primitives.
+ * The default arrow size is 1.
+ */
 void gr_setarrowsize(double size)
 {
   check_autoinit;
@@ -7108,6 +8426,18 @@ void gr_setarrowsize(double size)
     gr_writestream("<setarrowsize size=\"%g\"/>\n", size);
 }
 
+/*!
+ * Draw an arrow between two points.
+ *
+ * \param[in] x1 The X coordinate of the arrow start point (tail)
+ * \param[in] y1 The Y coordinate of the arrow start point (tail)
+ * \param[in] x2 The X coordinate of the arrow end point (head)
+ * \param[in] y2 The Y coordinate of the arrow end point (head)
+ *
+ * Different arrow styles (angles between arrow tail and wing, optionally filled
+ * heads, double headed arrows) are available and can be set with the
+ * gr_setarrowstyle function.
+ */
 void gr_drawarrow(double x1, double y1, double x2, double y2)
 {
   double xs, ys, xe, ye;
@@ -7199,13 +8529,42 @@ void gr_drawarrow(double x1, double y1, double x2, double y2)
                    x1, y1, x2, y2);
 }
 
+/*!
+ * Draw an image into a given rectangular area.
+ *
+ * \param[in] xmin X coordinate of the lower left point of the rectangle
+ * \param[in] ymin Y coordinate of the lower left point of the rectangle
+ * \param[in] xmax X coordinate of the upper right point of the rectangle
+ * \param[in] ymax Y coordinate of the upper right point of the rectangle
+ * \param[in] width X dimension of the color index array
+ * \param[in] height Y dimension of the color index array
+ * \param[in] data color array
+ * \param[in] model color model
+ *
+ * The points (xmin, ymin) and (xmax, ymax) are world coordinates defining
+ * diagonally opposite corner points of a rectangle. This rectangle is divided
+ * into width by height cells. The two-dimensional array data specifies colors
+ * for each cell.
+ *
+ * \verbatim embed:rst:leading-asterisk
+ *
+ * The available color models are:
+ *
+ * +-----------------------+---+-----------+
+ * |MODEL_RGB              |  0|   AABBGGRR|
+ * +-----------------------+---+-----------+
+ * |MODEL_HSV              |  1|   AAVVSSHH|
+ * +-----------------------+---+-----------+
+ *
+ * \endverbatim
+ */
 void gr_drawimage(
   double xmin, double xmax, double ymin, double ymax,
   int width, int height, int *data, int model)
 {
-  int n, i;
-  int *img = data;
-  double h, s, v, r, g, b;
+  int *img = data, *imgT;
+  int n, i, j, w, h;
+  double hue, saturation, value, red, green, blue, x, y;
 
   check_autoinit;
 
@@ -7215,19 +8574,51 @@ void gr_drawimage(
       img = (int *) xmalloc(n * sizeof(int));
       for (i = 0; i < n; i++)
         {
-          h = ( data[i] & 0xff             ) / 255.0;
-          s = ((data[i] & 0xff00)     >>  8) / 255.0;
-          v = ((data[i] & 0xff0000)   >> 16) / 255.0;
-          gr_hsvtorgb(h, s, v, &r, &g, &b);
+          hue        = ( data[i] & 0xff             ) / 255.0;
+          saturation = ((data[i] & 0xff00)     >>  8) / 255.0;
+          value      = ((data[i] & 0xff0000)   >> 16) / 255.0;
+          gr_hsvtorgb(hue, saturation, value, &red, &green, &blue);
           img[i] = (data[i] & 0xff000000) |
-                   ((int) (r * 255) << 16) |
-                   ((int) (g * 255) <<  8) |
-                   ((int) (b * 255));
+                   ((int) (red   * 255) << 16) |
+                   ((int) (green * 255) <<  8) |
+                   ((int) (blue  * 255));
         }
     }
 
-  gks_draw_image(
-    x_lin(xmin), y_lin(ymax), x_lin(xmax), y_lin(ymin), width, height, img);
+  if (lx.scale_options != 0)
+    {
+      w = max(width,  500);
+      h = max(height, 500);
+      imgT = (int *) xmalloc(w * h * sizeof(int));
+      for (i = 0; i < w; i++)
+        {
+          if (w > 1)
+            {
+              x = (x_log(xmin + i * (xmax-xmin) / (w-1)) - xmin) / (xmax-xmin);
+              if (x < 0) x = 0; else if (x > 1) x = 1;
+            }
+          else
+            x = 0;
+          for (j = 0; j < h; j++)
+            {
+              if (h > 1)
+                {
+                  y = (y_log(ymin + (h-1-j) * (ymax-ymin) / (h-1)) - ymin) /
+                      (ymax-ymin);
+                  if (y < 0) y = 0; else if (y > 1) y = 1;
+                }
+              else
+                y = 0;
+              imgT[i + j * w] = img[(int)(x * width) +
+                                    (int)((1-y) * height) * width];
+            }
+        }
+      gks_draw_image(
+        x_lin(xmin), y_lin(ymax), x_lin(xmax), y_lin(ymin), w, h, imgT);
+      free(imgT);
+    }
+  else
+    gks_draw_image(xmin, ymax, xmax, ymin, width, height, img);
 
   if (flag_graphics)
     {
@@ -7244,6 +8635,18 @@ void gr_drawimage(
     free(img);
 }
 
+/*!
+ * Allows drawing of shadows, realized by images painted underneath,
+ * and offset from, graphics objects such that the shadow mimics the effect of
+ * a light source cast on the graphics objects.
+ *
+ * \param[in] offsetx An x-offset, which specifies how far in the horizontal
+ *                    direction the shadow is offset from the object
+ * \param[in] offsety A y-offset, which specifies how far in the vertical
+ *                    direction the shadow is offset from the object
+ * \param[in] blur A blur value, which specifies whether the object has a
+ *                    hard or a diffuse edge
+ */
 void gr_setshadow(double offsetx, double offsety, double blur)
 {
   check_autoinit;
@@ -7251,6 +8654,11 @@ void gr_setshadow(double offsetx, double offsety, double blur)
   gks_set_shadow(offsetx, offsety, blur);
 }
 
+/*!
+ * Set the value of the alpha component associated with GR colors.
+ *
+ * \param[in] alpha An alpha value (0.0 - 1.0)
+ */
 void gr_settransparency(double alpha)
 {
   check_autoinit;
@@ -7258,6 +8666,11 @@ void gr_settransparency(double alpha)
   gks_set_transparency(alpha);
 }
 
+/*!
+ * Change the coordinate transformation according to the given matrix.
+ *
+ * \param[in] mat 2D transformation matrix
+ */
 void gr_setcoordxform(double mat[3][2])
 {
   check_autoinit;
@@ -7265,6 +8678,15 @@ void gr_setcoordxform(double mat[3][2])
   gks_set_coord_xform(mat);
 }
 
+/*!
+ * Open a file for graphics output.
+ *
+ * \param[in] path Filename for the graphics file.
+ *
+ * gr_begingraphics allows to write all graphics output into a XML-formatted
+ * file until the gr_endgraphics functions is called. The resulting file may
+ * later be imported with the gr_importgraphics function.
+ */
 void gr_begingraphics(char *path)
 {
   if (!flag_graphics)
@@ -7299,7 +8721,7 @@ void latex2image(char *string, int pointSize, double *rgb,
   char *tmp, *temp, *null, cmd[1024];
   char tex[FILENAME_MAX], dvi[FILENAME_MAX], png[FILENAME_MAX];
   FILE *stream;
-  int ret;
+  int math, ret;
 
   color = ((int)(rgb[0] / 255)      ) +
           ((int)(rgb[1] / 255) <<  8) +
@@ -7316,6 +8738,7 @@ void latex2image(char *string, int pointSize, double *rgb,
 
   if (access(path, R_OK) != 0)
     {
+      math = strstr(string, "\\(") == NULL;
 #ifdef _WIN32
       tmp = cache;
       temp = ".";
@@ -7342,13 +8765,14 @@ void latex2image(char *string, int pointSize, double *rgb,
 \\documentclass{article}\n\
 \\pagestyle{empty}\n\
 \\usepackage[dvips]{color}\n\
-\\begin{document}\n\
-\\[\n\
-\\color[rgb]{%.3f,%.3f,%.3f} {\n", rgb[0], rgb[1], rgb[2]);\
+\\begin{document}\n");
+      if (math) fprintf(stream, "\\[\n");
+      fprintf(stream, "\\color[rgb]{%.3f,%.3f,%.3f} {\n",
+        rgb[0], rgb[1], rgb[2]);
       fwrite(string, strlen(string), 1, stream);
-      fprintf(stream, "}\n\
-\\]\n\
-\\end{document}");
+      fprintf(stream, "}\n");
+      if (math) fprintf(stream, "\\]\n");
+      fprintf(stream, "\\end{document}");
       fclose(stream);
 
       sprintf(cmd, "latex -interaction=batchmode -halt-on-error -output-directory=%s %s >%s",
@@ -7383,21 +8807,62 @@ void latex2image(char *string, int pointSize, double *rgb,
     gr_readimage(path, width, height, data);
 }
 
-void gr_mathtex(double x, double y, char *string)
+int *rotl90(int m, int n, int *mat)
+{
+  int *trans = (int *) xcalloc(m * n, sizeof(int));
+  int i, j;
+
+  for (j = 0; j < n; j++)
+    for (i = 0; i < m; i++)
+      trans[(m-1-i)*n + j] = mat[j*m + i];
+
+  return trans;
+}
+
+static
+int *rot180(int m, int n, int *mat)
+{
+  int *trans = (int *) xcalloc(m * n, sizeof(int));
+  int i, j;
+
+  for (j = 0; j < n; j++)
+    for (i = 0; i < m; i++)
+      trans[(n-1-j)*m + m-1-i] = mat[j*m + i];
+
+  return trans;
+}
+
+static
+int *rotr90(int m, int n, int *mat)
+{
+  int *trans = (int *) xcalloc(m * n, sizeof(int));
+  int i, j;
+
+  for (j = 0; j < n; j++)
+    for (i = 0; i < m; i++)
+      trans[i*n + n-1-j] = mat[j*m + i];
+
+  return trans;
+}
+
+static
+void mathtex(double x, double y, char *string,
+             int inquire, double *tbx, double *tby)
 {
   int wkid = 1, errind, conid, wtype, dcunit;
   int pointSize, pixels, color;
-  double chh, rgb[3];
-  int width, height, *data = NULL;
-  double w, h, xmin, xmax, ymin, ymax;
-  int halign, valign, tnr;
+  double chh, rgb[3], ux, uy;
+  int width, height, *data = NULL, w, h, *trans = NULL;
+  double rad, rw, rh, rx, ry, xx, yy, bbx[4], bby[4];
+  double x1, x2, y1, y2, midx, midy, sinf, cosf;
+  int i, j, ii, jj, angle, path, halign, valign, tnr;
 
   check_autoinit;
 
   gks_inq_ws_conntype(wkid, &errind, &conid, &wtype);
-  gks_inq_max_ds_size(wtype, &errind, &dcunit, &w, &h, &width, &height);
+  gks_inq_max_ds_size(wtype, &errind, &dcunit, &rw, &rh, &width, &height);
   if (sizex > 0)
-    pixels = sizex / h * height;
+    pixels = sizex / rh * height;
   else
     pixels = 500;
   if (wtype == 101 || wtype == 102 || wtype == 120 || wtype == 382)
@@ -7411,33 +8876,150 @@ void gr_mathtex(double x, double y, char *string)
   pointSize = chh * pixels;
   latex2image(string, pointSize, rgb, &width, &height, &data);
 
+  gks_inq_text_upvec(&errind, &ux, &uy);
+  ux = nx.a * x_lin(ux);
+  uy = nx.c * y_lin(uy);
+
+  rad = -atan2(ux, uy);
+  angle = (int)(rad * 180 / M_PI + 0.5);
+  if (angle < 0)
+    angle += 360;
+  path = ((angle + 45) / 90) % 4;
+
   if (data != NULL)
     {
-      w =  width / (double) pixels;
-      h = height / (double) pixels;
+      rw =  width / (double) pixels;
+      rh = height / (double) pixels;
 
       gks_inq_text_align(&errind, &halign, &valign);
 
-      xmin = x + xfac[halign] * w;
-      xmax = xmin + w;
-      ymin = y + yfac[valign] * h;
-      ymax = ymin + h;
+      rx = x;
+      switch (halign)
+        {
+          case 2: rx -= 0.5 * rw; break;
+          case 3: rx -= rw; break;
+        }
+      ry = y;
+      switch (valign)
+        {
+          case 1: ry -= rh - chh * 0.04; break;
+          case 2: ry -= rh; break;
+          case 3: ry -= 0.5 * rh; break;
+          case 5: ry -= chh * 0.04; break;
+        }
+      bbx[0] = rx;
+      bbx[1] = rx + rw;
+      bbx[2] = bbx[1];
+      bbx[3] = bbx[0];
+      bby[0] = ry;
+      bby[1] = bby[0];
+      bby[2] = ry + rh;
+      bby[3] = bby[2];
 
-      gks_inq_current_xformno(&errind, &tnr);
-      if (tnr != NDC)
-        gks_select_xform(NDC);
+      x1 = y1 = FLT_MAX;
+      x2 = y2 = -FLT_MAX;
 
-      gks_draw_image(x_lin(xmin), y_lin(ymax), x_lin(xmax), y_lin(ymin),
-                     width, height, data);
+      for (i = 0; i < 4; i++)
+        {
+          xx = bbx[i] - x;
+          yy = bby[i] - y;
+          bbx[i] = x + cos(rad) * xx - sin(rad) * yy;
+          bby[i] = y + sin(rad) * xx + cos(rad) * yy;
 
-      if (tnr != NDC)
-        gks_select_xform(tnr);
+          x1 = min(x1, bbx[i]);
+          x2 = max(x2, bbx[i]);
+          y1 = min(y1, bby[i]);
+          y2 = max(y2, bby[i]);
+        }
+
+      if (inquire)
+        {
+          for (i = 0; i < 4; i++)
+            {
+              tbx[i] = bbx[i];
+              tby[i] = bby[i];
+            }
+        }
+      else
+        {
+          gks_inq_current_xformno(&errind, &tnr);
+          if (tnr != NDC)
+            gks_select_xform(NDC);
+
+          if (angle % 90 == 0)
+            {
+              switch (path)
+                {
+                  case 0:
+                    gks_draw_image(x1, y2, x2, y1, width, height, data);
+                    break;
+                  case 1:
+                    trans = rotl90(width, height, data);
+                    gks_draw_image(x1, y2, x2, y1, height, width, trans);
+                    free(trans);
+                    break;
+                  case 2:
+                    trans = rot180(width, height, data);
+                    gks_draw_image(x1, y2, x2, y1, width, height, trans);
+                    free(trans);
+                    break;
+                  case 3:
+                    trans = rotr90(width, height, data);
+                    gks_draw_image(x1, y2, x2, y1, height, width, trans);
+                    free(trans);
+                    break;
+                }
+            }
+          else
+            {
+              w = (int)((x2 - x1) * pixels + 0.5),
+              h = (int)((y2 - y1) * pixels + 0.5);
+              trans = (int *) xcalloc(w * h, sizeof(int));
+              midx = ceil(0.5 * w);
+              midy = ceil(0.5 * h);
+              sinf = sin(rad);
+              cosf = cos(rad);
+              for (j = 0; j < h; j++)
+                for (i = 0; i < w; i++)
+                  {
+                    xx = (i - midx) * cosf - (j - midy) * sinf;
+                    yy = (i - midx) * sinf + (j - midy) * cosf;
+                    ii = round(xx) + ceil(0.5 * width);
+                    jj = round(yy) + ceil(0.5 * height);
+                    if (ii >= 0 && jj >= 0 && ii < width && jj < height)
+                      trans[j * w + i] = data[jj * width + ii];
+                  }
+              gks_draw_image(x1, y2, x2, y1, w, h, trans);
+              free(trans);
+            }
+
+          if (tnr != NDC)
+            gks_select_xform(tnr);
+        }
 
       free(data);
     }
+}
+
+/*!
+ * Generate a character string starting at the given location. Strings can be
+ * defined to create mathematical symbols and Greek letters using LaTeX syntax.
+ *
+ * \param[in] x The X coordinate of the starting position of the text string
+ * \param[in] y The Y coordinate of the starting position of the text string
+ * \param[in] string The text string to be drawn
+ */
+void gr_mathtex(double x, double y, char *string)
+{
+  mathtex(x, y, string, 0, NULL, NULL);
 
   if (flag_graphics)
     gr_writestream("<mathtex x=\"%g\" y=\"%g\" text=\"%s\"/>\n", x, y, string);
+}
+
+void gr_inqmathtex(double x, double y, char *string, double *tbx, double *tby)
+{
+  mathtex(x, y, string, 1, tbx, tby);
 }
 
 void gr_beginselection(int index, int type)
@@ -7810,7 +9392,68 @@ void gr_adjustlimits(double *amin, double *amax)
   *amax = ceil(*amax * scale) / scale;
 }
 
+/*!
+ * Returns the version string of the GR runtime.
+ *
+ * \returns A pointer to the GR runtime version string.
+ */
 const char *gr_version(void) {
     static const char *gr_version_str = GR_VERSION;
     return gr_version_str;
+}
+
+/*!
+ * Finds the index of the minimum and maximum value in array.
+ *
+ * \param[out] min_index the index of the minimum value in array
+ * \param[out] max_index the index of the maximum value in array
+ * \param[in] n the number of values in array
+ * \param[in] array the value array
+ */
+static void arg_min_max(int *min_index, int *max_index, int n, const double *array) {
+  int i;
+  *min_index = 0;
+  *max_index = 0;
+  for (i = 1; i < n; i++) {
+    if (array[i] < array[*min_index])
+      *min_index = i;
+    if (array[i] > array[*max_index])
+      *max_index = i;
+  }
+}
+
+/*!
+ * Reduces the number of points of the x and y array.
+ *
+ * @param[in] n the number of points of the x and y arrays
+ * @param[in] x the x value array
+ * @param[in] y the y value array
+ * @param[in] points the requested number of points
+ * @param[out] x_array the return array for the x values
+ * @param[out] y_array the return array for the y values
+ */
+void gr_reducepoints(int n, const double *x, const double *y, int points, double *x_array, double *y_array) {
+  int append_index = 0;
+  int num_intervals = points / 2;
+  double exact_interval_width = (double) n / num_intervals;
+  int interval_width = n / num_intervals;
+  int interval;
+  if (n < points) {
+    /* Copy the original array */
+    memcpy(x_array, x, sizeof(double) * n);
+    memcpy(y_array, y, sizeof(double) * n);
+    fprintf(stderr, "Not enough points provided.\n");
+    return;
+  }
+  for (interval = 0; interval < num_intervals; interval++) {
+    int index = interval * exact_interval_width;
+    int min_index, max_index;
+    arg_min_max(&min_index, &max_index, min(interval_width, n - index - 1), y + index);
+    x_array[append_index] = x[min_index + index];
+    y_array[append_index] = y[min_index + index];
+    append_index++;
+    x_array[append_index] = x[max_index + index];
+    y_array[append_index] = y[max_index + index];
+    append_index++;
+  }
 }

@@ -3,28 +3,28 @@
 #include <QTcpSocket>
 #include <qstring.h>
 
+#include "gkswidget.h"
+
 class GKSServer : public QTcpServer
 {
   Q_OBJECT
-    
+
 public:
   GKSServer(QObject *parent = 0);
-  
+
 public slots:
   void readClient();
   void killSocket();
   void connectSocket();
-  void setKeepOnDisplay(const bool flag);
-  void open();
- 
+  void disconnectSocket();
+  void newWidget();
+
 private:
-  QTcpSocket *s;
+  QTcpSocket *socket;
   char *dl, *ba;
   int nbyte, dl_size, ba_size;
-  bool keepOnDisplay;
-  bool isopen;
+  GKSWidget *widget;
 
 signals:
   void data(char *);
-  void openWindow();
 };
