@@ -3194,13 +3194,14 @@ char *gks_filepath(const char *defpath, const char *type, int page, int index)
     len += snprintf(NULL, 0, "-%d", page);
   if (index != 0)
     len += snprintf(NULL, 0, "_%d", index);
+  len += snprintf(NULL, 0, ".%s", type);
   path = (char *)calloc(len+1, sizeof(char));
   memcpy(path, base, base_len);
   p = path + base_len;
 
   if (page > 1)   p += sprintf(p, "-%d", page);
   if (index != 0) p += sprintf(p, "_%d", index);
-  p += sprintf(p, ".%s", type); // assert p-path == len
+  p += sprintf(p, ".%s", type); 
   return path;
 }
 
