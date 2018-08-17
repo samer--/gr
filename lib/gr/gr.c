@@ -1565,7 +1565,7 @@ void gr_inqdspsize(double *mwidth, double *mheight, int *width, int *height)
 
   check_autoinit;
 
-  gks_inq_open_ws(n, &errind, &ol, &wkid);
+  gks_inq_active_ws(n, &errind, &ol, &wkid); // FIXME: what if multiple workspaces open?
   gks_inq_ws_conntype(wkid, &errind, &conid, &wtype);
   gks_inq_max_ds_size(wtype, &errind, &dcunit, mwidth, mheight, width, height);
 }
@@ -1869,7 +1869,8 @@ void gr_inqtext(double x, double y, char *string, double *tbx, double *tby)
   if (tnr != NDC)
     gks_select_xform(NDC);
 
-  gks_inq_open_ws(1, &errind, &n, &wkid);
+  gks_inq_active_ws(1, &errind, &n, &wkid); // FIXME: what if multiple workspaces open?ffoon
+
 
   if (strchr(string, '\n') != NULL)
     {
