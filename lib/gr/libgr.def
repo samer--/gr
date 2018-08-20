@@ -23,6 +23,7 @@ EXPORTS
 	gr_createseg
 	gr_deactivatews
 	gr_delaunay
+	gr_reducepoints
 	gr_destroycontext
 	gr_drawarrow
         gr_drawgraphics
@@ -51,6 +52,7 @@ EXPORTS
 	gr_inqtextext
 	gr_interp2
 	gr_mathtex
+	gr_inqmathtex
 	gr_moveselection
 	gr_ndctowc
 	gr_opengks

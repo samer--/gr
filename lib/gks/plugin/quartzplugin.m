@@ -5,6 +5,7 @@
 #import <AppKit/AppKit.h>
 
 #include <pthread.h>
+#include <zmq.h>
 
 #include "gks.h"
 #include "gkscore.h"
@@ -41,11 +42,12 @@ DLLEXPORT void gks_quartzplugin(
 #endif
 #endif
 
-static
-gks_state_list_t *gkss;
+#define GKSTERM_DEFAULT_TIMEOUT 5000
+/* Timeout for is running is short so that GKSTerm will be started quickly. */
+#define GKSTERM_IS_RUNNING_TIMEOUT 50
 
 static
-id plugin;
+gks_state_list_t *gkss;
 
 static
 NSLock *mutex;
@@ -56,21 +58,6 @@ int num_windows = 0;
 static
 NSTask *task = NULL;
 
-
-static int update(ws_state_list *wss)
-{
-  [wss->displayList initWithBytesNoCopy: wss->dl.buffer length: wss->dl.nbytes freeWhenDone: NO];
-  @try {
-    if (wss->pending_resize) {
-      [plugin GKSQuartzResizeDraw: wss->win displayList: wss->displayList : wss->resize_width : wss->resize_height];
-      wss->pending_resize = 0;
-    } else
-      [plugin GKSQuartzDraw: wss->win displayList: wss->displayList];
-    return 0;
-  } @catch (NSException *e) {
-    return 1;
-  }
-}
 
 @interface wss_wrapper:NSObject
 {
@@ -83,6 +70,172 @@ static int update(ws_state_list *wss)
 @implementation wss_wrapper
 @synthesize wss;
 @end
+
+static bool gksterm_is_running();
+
+static void gksterm_communicate(const char *request, size_t request_len, int timeout, bool only_if_running, void (^reply_handler)(char*, size_t)) {
+  int rc;
+  void *context = zmq_ctx_new();
+  void *socket = zmq_socket(context, ZMQ_REQ);
+  CFAbsoluteTime startTime = CFAbsoluteTimeGetCurrent();
+  // Disable waiting for unsent messages when closing a socket
+  int linger = 0;
+  zmq_setsockopt(socket, ZMQ_LINGER, &linger, sizeof(int));
+
+  rc = zmq_connect(socket, "ipc:///tmp/GKSTerm.sock");
+  assert(rc == 0);
+
+  zmq_msg_t message;
+  zmq_msg_init_size(&message, request_len);
+  memcpy(zmq_msg_data(&message), (void *)request, request_len);
+  do {
+    if ((only_if_running && !gksterm_is_running()) || (CFAbsoluteTimeGetCurrent() - startTime) * 1000.0 > timeout) {
+      zmq_msg_close(&message);
+      zmq_close(socket);
+      zmq_ctx_term(context);
+      @throw  [NSException exceptionWithName:@"GKSTermHasDiedException"
+                                      reason:@"The connection to GKSTerm has timed out."
+                                    userInfo:nil];
+    }
+    if (rc == -1 && errno == EAGAIN) {
+      usleep(10000);
+    }
+    rc = zmq_msg_send(&message, socket, ZMQ_DONTWAIT);
+  } while (rc == -1 && (errno == EINTR || errno == EAGAIN));
+  assert(rc == request_len);
+  zmq_msg_close(&message);
+
+  zmq_msg_init(&message);
+  do {
+    if ((only_if_running && !gksterm_is_running()) || (CFAbsoluteTimeGetCurrent() - startTime) * 1000.0 > timeout) {
+      zmq_msg_close(&message);
+      zmq_close(socket);
+      zmq_ctx_term(context);
+      @throw  [NSException exceptionWithName:@"GKSTermHasDiedException"
+                                      reason:@"The connection to GKSTerm has timed out."
+                                    userInfo:nil];
+    }
+    if (rc == -1 && errno == EAGAIN) {
+      usleep(10000);
+    }
+    rc = zmq_msg_recv(&message, socket, ZMQ_DONTWAIT);
+  } while (rc == -1 && (errno == EINTR || errno == EAGAIN));
+  assert(rc >= 1);
+
+  char *reply = (char *)zmq_msg_data(&message);
+  assert(reply[0] == request[0]);
+
+  reply_handler(reply+1, rc-1);
+
+  zmq_msg_close(&message);
+  zmq_close(socket);
+  zmq_ctx_term(context);
+}
+
+static bool gksterm_is_running() {
+  size_t request_len = 1;
+  char request[1];
+  request[0] = GKSTERM_FUNCTION_IS_RUNNING;
+
+  @try {
+    gksterm_communicate(request, request_len, GKSTERM_IS_RUNNING_TIMEOUT, NO, ^(char* reply, size_t reply_len) {
+      assert(reply_len == 0);
+    });
+  } @catch (NSException *) {
+    return false;
+  }
+  return true;
+}
+
+static bool gksterm_is_alive(int window) {
+  size_t request_len = 1+sizeof(int);
+  char request[1+sizeof(int)];
+  request[0] = GKSTERM_FUNCTION_IS_ALIVE;
+  *(int*)(request+1) = window;
+
+  __block bool result = NO;
+  gksterm_communicate(request, request_len, GKSTERM_DEFAULT_TIMEOUT, YES, ^(char* reply, size_t reply_len) {
+    assert(reply_len == 1);
+    result = (reply[0] == 1);
+  });
+  return result;
+}
+
+static int gksterm_create_window() {
+  size_t request_len = 1;
+  char request[1];
+  request[0] = GKSTERM_FUNCTION_CREATE_WINDOW;
+
+  __block int result = 0;
+  gksterm_communicate(request, request_len, GKSTERM_DEFAULT_TIMEOUT, YES, ^(char* reply, size_t reply_len) {
+    assert(reply_len == sizeof(int));
+    result = *(int*)reply;
+  });
+  return result;
+}
+
+static void gksterm_close_window(int window) {
+  size_t request_len = 1+sizeof(int);
+  char request[1+sizeof(int)];
+  request[0] = GKSTERM_FUNCTION_CLOSE_WINDOW;
+  *(int*)(request+1) = window;
+
+  gksterm_communicate(request, request_len, GKSTERM_DEFAULT_TIMEOUT, YES, ^(char* reply, size_t reply_len) {
+    assert(reply_len == 0);
+  });
+}
+
+static void gksterm_draw(int window, void*displaylist, size_t displaylist_len) {
+  size_t request_len = 1 + sizeof(int) + sizeof(size_t) + displaylist_len;
+  char *request = (char *)malloc(request_len), *p=request;
+  assert(request != NULL);
+  *p = GKSTERM_FUNCTION_DRAW; p++;
+  *(int*)p = window;    p += sizeof(int);
+  *(size_t*)p = displaylist_len; p += sizeof(size_t);
+  memcpy((void*)p, displaylist, displaylist_len);
+
+  @try {
+    gksterm_communicate(request, request_len, GKSTERM_DEFAULT_TIMEOUT, YES, ^(char* reply, size_t reply_len) {
+      assert(reply_len == 0);
+    });
+  } @finally {
+    free(request);
+  }
+}
+
+static void gksterm_resize_draw(int window, double width, double height, void*displaylist, size_t displaylist_len) {
+  size_t request_len = 1 + sizeof(int) + 2*sizeof(double) + sizeof(size_t) + displaylist_len;
+  char *request = (char *)malloc(request_len), *p = request;
+  assert(request != NULL);
+  *p = GKSTERM_FUNCTION_RESIZE_DRAW; p++;
+  *(int*)p = window;    p += sizeof(int);
+  *(double*)p = width;  p += sizeof(double);
+  *(double*)p = height; p += sizeof(double);
+  *(size_t*)p = displaylist_len; p += sizeof(size_t);
+  memcpy((void*)p, displaylist, displaylist_len);
+
+  @try {
+    gksterm_communicate(request, request_len, GKSTERM_DEFAULT_TIMEOUT, YES, ^(char* reply, size_t reply_len) {
+      assert(reply_len == 0);
+    });
+  } @finally {
+    free(request);
+  }
+}
+
+static int update(ws_state_list *wss)
+{
+  @try {
+    if (wss->pending_resize) {
+      gksterm_resize_draw(wss->win, wss->resize_width, wss->resize_height, wss->dl.buffer, wss->dl.nbytes);
+      wss->pending_resize = 0;
+    } else
+      gksterm_draw(wss->win, wss->dl.buffer, wss->dl.nbytes);
+    return 0;
+  } @catch (NSException *e) {
+    return 1;
+  }
+}
 
 @interface gks_quartz_thread : NSObject
 + (void) update: (id) param;
@@ -107,14 +260,14 @@ static int update(ws_state_list *wss)
       }
       @try
         {
-          if ([plugin GKSQuartzIsAlive: wss->win] == 0)
+          if (!gksterm_is_alive(wss->win))
             {
               /* This process should die when the user closes the last window */
               if (!wss->closed_by_api) {
                 bool all_dead = YES;
                 int win;
                 for (win = 0; all_dead && win < MAX_WINDOWS; win++) {
-                  all_dead = [plugin GKSQuartzIsAlive: win] == 0;
+                  all_dead = !gksterm_is_alive(win);
                 }
 #ifdef SIGUSR1
                 if (all_dead) {
@@ -128,7 +281,6 @@ static int update(ws_state_list *wss)
       @catch (NSException *e)
         {
 #ifdef SIGUSR1
-          printf("q> killing master thread due to exception\n");
           pthread_kill(wss->master_thread, SIGUSR1);
 #endif
           didDie = 1;
@@ -197,28 +349,13 @@ void gks_quartzplugin(
       wss = (ws_state_list *) calloc(1, sizeof(ws_state_list));
       wss->pending_resize = 0;
       wss->update_countdown = -1; // assume deferred mode
-      wss->displayList = [[NSData alloc] initWithBytesNoCopy: wss
-                                    length: sizeof(ws_state_list)
-                                    freeWhenDone: NO];
-      if (plugin != nil) {
-        /* verify that the plugin connection is still alive */
-        @try {
-          [plugin GKSQuartzIsAlive: 0];
-        } @catch (NSException *) {
-          [plugin release];
-          plugin = nil;
-        }
-      }
-      if (plugin == nil) {
-        plugin = [NSConnection rootProxyForConnectionWithRegisteredName:
-                  @"GKSQuartz" host: nil];
-      }
+      bool is_connected = gksterm_is_running() ? YES : NO;
       if (mutex == nil) {
         mutex = [[NSLock alloc] init];
       }
       wss->master_thread = pthread_self();
 
-      if (plugin == nil)
+      if (!is_connected)
         {
           if (!gks_terminal())
             {
@@ -227,20 +364,21 @@ void gks_quartzplugin(
             }
           else
             {
-              int counter = 10;
-              while (--counter && !plugin)
+              int counter;
+              for (counter = 0; counter < 10 && !is_connected; counter++)
                 {
                   [NSThread sleepUntilDate:[NSDate dateWithTimeIntervalSinceNow: 1.0]];
-                  plugin = [NSConnection rootProxyForConnectionWithRegisteredName:
-                            @"GKSQuartz" host: nil];
+                  if (gksterm_is_running()) {
+                    is_connected = YES;
+                  }
                 }
             }
         }
 
-        wss->win = [plugin GKSQuartzCreateWindow];
+        wss->win = gksterm_create_window();
         num_windows++;
 
-      if (plugin)
+      if (is_connected)
         {
           wss_wrapper *wrapper = [wss_wrapper alloc];
           [wrapper init];
@@ -248,7 +386,6 @@ void gks_quartzplugin(
           wss->thread_alive = YES;
           wss->closed_by_api = NO;
           [NSThread detachNewThreadSelector: @selector(update:) toTarget:[gks_quartz_thread class] withObject:wrapper];
-          [plugin setProtocolForProxy: @protocol(gks_protocol)];
         }
 
       *ptr = wss;
@@ -265,9 +402,10 @@ void gks_quartzplugin(
       [mutex lock];
       wss->closed_by_api = YES;
       [mutex unlock];
+
       @try
         {
-          [plugin GKSQuartzCloseWindow: wss->win];
+          gksterm_close_window(wss->win);
           num_windows--;
         }
       @catch (NSException *e)
@@ -286,10 +424,7 @@ void gks_quartzplugin(
       if (num_windows == 0) {
         [mutex release];
         mutex = nil;
-        [plugin release];
-        plugin = nil;
       }
-      [wss->displayList release];
       free(wss);
       wss = NULL;
 

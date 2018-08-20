@@ -1,5 +1,15 @@
+#ifndef GKSQUARTZ_H
+#define GKSQUARTZ_H
 
 #define MAX_WINDOWS 50
+
+#define GKSTERM_FUNCTION_UNKNOWN 0
+#define GKSTERM_FUNCTION_CREATE_WINDOW 1
+#define GKSTERM_FUNCTION_DRAW 2
+#define GKSTERM_FUNCTION_IS_ALIVE 3
+#define GKSTERM_FUNCTION_CLOSE_WINDOW 4
+#define GKSTERM_FUNCTION_IS_RUNNING 5
+#define GKSTERM_FUNCTION_RESIZE_DRAW 6
 
 typedef struct
   {
@@ -19,14 +29,7 @@ typedef struct
     double resize_width, resize_height;
     bool thread_alive;
     bool closed_by_api;
-    NSData *displayList;
  }
 ws_state_list;
 
-@protocol gks_protocol
-- (int) GKSQuartzCreateWindow;
-- (void) GKSQuartzDraw: (int) win displayList: (id) displayList;
-- (void) GKSQuartzResizeDraw: (int) win displayList: (id) displayList : (double) width : (double) height;
-- (int) GKSQuartzIsAlive: (int) win;
-- (void) GKSQuartzCloseWindow: (int) win;
-@end
+#endif
