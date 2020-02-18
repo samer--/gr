@@ -1,9 +1,11 @@
+#ifndef _GKSWIDGET_H_
+#define _GKSWIDGET_H_
 
 #include <QtGlobal>
 #if QT_VERSION >= 0x050000
-    #include <QtWidgets/QWidget>
+#include <QtWidgets/QWidget>
 #else
-    #include <QtGui/QWidget>
+#include <QtGui/QWidget>
 #endif
 #include <QtCore/QMutex>
 
@@ -23,6 +25,8 @@ protected:
 
 private:
   int is_mapped;
+  bool prevent_resize;
   char *dl;
 };
 
+#endif

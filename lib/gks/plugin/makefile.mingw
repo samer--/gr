@@ -1,22 +1,23 @@
-DEFINES = -DNO_X11 -DNO_GLFW -DNO_GS -DNO_QT4 -DNO_QT5 -DNO_GTK -DNO_WX -DNO_ZMQ -DGRDIR=\"$(GRDIR)\"
-ZLIB = ../../../3rdparty/zlib/libz.lib
-PNGLIB = ../../../3rdparty/libpng16/libpng.lib
-JBIG2DECLIB = ../../../3rdparty/jbig2dec/libjbig2dec.lib
-JPEGLIB = ../../../3rdparty/jpeg/libjpeg.lib
-OPENJP2LIB = ../../../3rdparty/build/lib/libopenjp2.lib
-PIXMANLIB = ../../../3rdparty/pixman/libpixman-1.lib
-CAIROLIB = ../../../3rdparty/cairo/libcairo.lib
-FTLIB = ../../../3rdparty/freetype/libfreetype.lib
-MUPDFLIBS = -lmupdf $(FTLIBS) $(JBIG2DECLIB) $(JPEGLIBS) $(OPENJP2LIB) $(BZ2LIBS) -lws2_32
-AVLIBS = -lavdevice -lavformat -lavfilter -lavcodec -lswscale -lavutil -ltheora -logg -lvpx
-CAIROINCLUDES = -I../../../3rdparty/build/src/
-INCLUDES = -I../ -I../../../3rdparty/ -I../../../3rdparty/build/include -I/usr/local/include $(CAIROINCLUDES)
+ifeq ($(strip $(THIRDPARTYDIR)),)
+override THIRDPARTYDIR = $(abspath $(CURDIR)/../../../3rdparty/build)
+endif
+
+DEFINES = -DNO_X11 -DNO_GLFW -DNO_GS -DNO_QT4 -DNO_QT5 -DNO_GTK -DNO_WX -DNO_ZMQ -DGRDIR=\"$(GRDIR)\" -DXMD_H
+ZLIB = $(THIRDPARTYDIR)/lib/libz.a
+PNGLIB = $(THIRDPARTYDIR)/lib/libpng.a
+JPEGLIB = $(THIRDPARTYDIR)/lib/libjpeg.a
+PIXMANLIB = $(THIRDPARTYDIR)/lib/libpixman-1.a
+CAIROLIB = $(THIRDPARTYDIR)/lib/libcairo.a
+FTLIB = $(THIRDPARTYDIR)/lib/libfreetype.a
+AVLIBS = -lavformat -lavcodec -lswscale -lavutil -lvpx -ltheora -logg -lopenh264
+INCLUDES = -I../ -I$(THIRDPARTYDIR)/include -I/usr/local/include
 CFLAGS = -Wall $(DEFINES) $(INCLUDES)
 CXXFLAGS = -Wall $(DEFINES) $(INCLUDES)
 GDILIB = -lgdi32
-OBJS = font.o afm.o util.o malloc.o error.o io.o
+GKSLIB = ../libGKS.lib
+TIFFLIB = $(THIRDPARTYDIR)/lib/libtiff.a
 
-all: svgplugin.dll pgfplugin.dll htmplugin.dll cairoplugin.dll movplugin.dll wxplugin.dll qtplugin.dll qt5plugin.dll gtkplugin.dll figplugin.dll gsplugin.dll wmfplugin.dll glplugin.dll zmqplugin.dll
+all: x11plugin.dll svgplugin.dll pgfplugin.dll cairoplugin.dll wxplugin.dll qtplugin.dll qt5plugin.dll gtkplugin.dll gsplugin.dll wmfplugin.dll glplugin.dll zmqplugin.dll videoplugin.dll
 
 .SUFFIXES: .c .cxx .o
 
@@ -26,94 +27,51 @@ all: svgplugin.dll pgfplugin.dll htmplugin.dll cairoplugin.dll movplugin.dll wxp
 .cxx.o:
 	$(CXX) -c $(CXXFLAGS) $<
 
-$(PNGLIB):
-	$(MAKE) -C ../../../3rdparty/libpng16 libpng.lib
+x11plugin.dll: x11plugin.o $(GKSLIB)
+	$(CC) -shared -o $@ $^ -Wl,--out-implib,$(@:.dll=.a)
 
-$(JBIG2DECLIB):
-	$(MAKE) -C ../../../3rdparty/jbig2dec libjbig2dec.lib
+svgplugin.dll: svgplugin.o $(GKSLIB) $(PNGLIB) $(ZLIB)
+	$(CC) -shared -o $@ $^ -Wl,--out-implib,$(@:.dll=.a)
 
-$(JPEGLIB):
-	$(MAKE) -C ../../../3rdparty/jpeg libjpeg.lib
-
-$(FTLIB):
-	$(MAKE) -C ../../../3rdparty/freetype libfreetype.lib
-
-$(OPENJP2LIB):
-	cd ../../../3rdparty/openjp2/ && OPENJP2_EXTRA_CONFIGURE_FLAGS=-DCMAKE_TOOLCHAIN_FILE=`pwd`/${PREFIX}.cmake MAKE=make ./build.sh
-	mv ../../../3rdparty/build/lib/libopenjp2.a ../../../3rdparty/build/lib/libopenjp2.lib
-
-$(ZLIB):
-	$(MAKE) -C ../../../3rdparty/zlib libz.lib
-
-$(PIXMANLIB):
-	$(MAKE) -C ../../../3rdparty/pixman libpixman-1.lib
-
-$(CAIROLIB):
-	$(MAKE) -C ../../../3rdparty/cairo libcairo.lib
-
-VPXLIBS:
-	cd ../../../3rdparty/vpx && MAKE=make ./build.sh
-
-OGGLIBS:
-	cd ../../../3rdparty/ogg && OGG_EXTRA_CONFIGURE_FLAGS="--host=${PREFIX}" MAKE=make ./build.sh
-
-THEORALIBS: OGGLIBS
-	cd ../../../3rdparty/theora && THEORA_EXTRA_CONFIGURE_FLAGS="--host=${PREFIX}" MAKE=make ./build.sh
-
-AVLIBS: VPXLIBS THEORALIBS
-	cd ../../../3rdparty/ffmpeg/ &&	FFMPEG_EXTRA_CONFIGURE_FLAGS="--cross-prefix=${PREFIX}- --arch=${ARCHITECTURE} --target-os=mingw32" MAKE=make ./build.sh
-
-MUPDFLIBS:
-	cd ../../../3rdparty/mupdf && MUPDF_CROSS_COMPILE=yes ./build.sh
-
-svgplugin.dll: svgplugin.o $(OBJS) $(PNGLIB) $(ZLIB)
-	$(CXX) -shared -o $@ $^ -Wl,--out-implib,$(@:.dll=.a)
-
-pgfplugin.dll: pgfplugin.o $(OBJS) $(PNGLIB) $(ZLIB)
-	$(CXX) -shared -o $@ $^ -Wl,--out-implib,$(@:.dll=.a)
-
-htmplugin.dll: htmplugin.o $(OBJS) $(PNGLIB) $(ZLIB)
-	$(CXX) -shared -o $@ $^ -Wl,--out-implib,$(@:.dll=.a) -lwsock32
-
-movplugin.o: $(JBIG2DECLIB) $(OPENJP2LIB) $(ZLIB) $(JPEGLIB) $(FTLIB) AVLIBS MUPDFLIBS
-
-movplugin.dll: movplugin.o font.o afm.o util.o vc.o gif.o dl.o malloc.o error.o io.o
-	$(CXX) -shared -o $@ $^ -Wl,--out-implib,$(@:.dll=.a) -L../../../3rdparty/build/lib -L/usr/local/lib $(AVLIBS) $(MUPDFLIBS) $(SSLLIBS) $(EXTRALIBS) $(ZLIB) $(LIBS) $(JPEGLIB) $(FTLIB)
+pgfplugin.dll: pgfplugin.o $(GKSLIB) $(PNGLIB) $(ZLIB)
+	$(CC) -shared -o $@ $^ -Wl,--out-implib,$(@:.dll=.a)
 
 cairoplugin.o: $(CAIROLIB)
 
-cairoplugin.dll: cairoplugin.o $(OBJS) $(CAIROLIB) $(PIXMANLIB) $(PNGLIB) $(ZLIB)
-	$(CXX) -shared -o $@ $^ -Wl,--out-implib,$(@:.dll=.a) $(GDILIB)
+cairoplugin.dll: cairoplugin.o $(GKSLIB) $(CAIROLIB) $(PIXMANLIB) $(PNGLIB) $(TIFFLIB) $(ZLIB) $(FTLIB) $(JPEGLIB)
+	$(CC) -shared -o $@ $^ -Wl,--out-implib,$(@:.dll=.a) $(GDILIB)
 
-wxplugin.dll: wxplugin.o $(OBJS)
+videoplugin.o: $(ZLIB) $(JPEGLIB) $(FTLIB) AVLIBS
+
+videoplugin.dll: videoplugin.o vc.o gif.o $(GKSLIB)
+	$(CXX) -shared -o $@ $^ -Wl,--out-implib,$(@:.dll=.a) -L../../../3rdparty/build/lib -L/usr/local/lib $(AVLIBS) $(SSLLIBS) $(EXTRALIBS) $(ZLIB) $(LIBS) $(JPEGLIB) $(FTLIB)
+
+wxplugin.dll: wxplugin.o $(GKSLIB)
 	$(CXX) -shared -o $@ $^ -Wl,--out-implib,$(@:.dll=.a)
 
-qtplugin.dll: qtplugin.o $(OBJS)
+qtplugin.dll: qtplugin.o $(GKSLIB)
 	$(CXX) -shared -o $@ $^ -Wl,--out-implib,$(@:.dll=.a)
 
-qt5plugin.dll: qt5plugin.o $(OBJS)
+qt5plugin.dll: qt5plugin.o $(GKSLIB)
 	$(CXX) -shared -o $@ $^ -Wl,--out-implib,$(@:.dll=.a)
 
-gtkplugin.dll: gtkplugin.o $(OBJS)
-	$(CXX) -shared -o $@ $^ -Wl,--out-implib,$(@:.dll=.a)
+gtkplugin.dll: gtkplugin.o $(GKSLIB)
+	$(CC) -shared -o $@ $^ -Wl,--out-implib,$(@:.dll=.a)
 
-figplugin.dll: figplugin.o $(OBJS) $(PNGLIB) $(ZLIB)
-	$(CXX) -shared -o $@ $^ -Wl,--out-implib,$(@:.dll=.a)
+gsplugin.dll: gsplugin.o $(GKSLIB)
+	$(CC) -shared -o $@ $^ -Wl,--out-implib,$(@:.dll=.a)
 
-gsplugin.dll: gsplugin.o $(OBJS)
-	$(CXX) -shared -o $@ $^ -Wl,--out-implib,$(@:.dll=.a)
+wmfplugin.dll: wmfplugin.o $(GKSLIB)
+	$(CC) -shared -o $@ $^ -Wl,--out-implib,$(@:.dll=.a)
 
-wmfplugin.dll: wmfplugin.o $(OBJS)
-	$(CXX) -shared -o $@ $^ -Wl,--out-implib,$(@:.dll=.a)
+glplugin.dll: glplugin.o $(GKSLIB)
+	$(CC) -shared -o $@ $^ -Wl,--out-implib,$(@:.dll=.a)
 
-glplugin.dll: glplugin.o $(OBJS)
-	$(CXX) -shared -o $@ $^ -Wl,--out-implib,$(@:.dll=.a)
-
-zmqplugin.dll: zmqplugin.o $(OBJS)
-	$(CXX) -shared -o $@ $^ -Wl,--out-implib,$(@:.dll=.a)
+zmqplugin.dll: zmqplugin.o $(GKSLIB)
+	$(CC) -shared -o $@ $^ -Wl,--out-implib,$(@:.dll=.a)
 
 clean:
 	$(RM) *.dll
 	$(RM) *.o
 
-.PHONY: clean AVLIBS VPXLIBS OGGLIBS THEORALIBS MUPDFLIBS
+.PHONY: clean AVLIBS VPXLIBS OGGLIBS THEORALIBS

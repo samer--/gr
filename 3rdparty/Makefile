@@ -1,15 +1,17 @@
- TARGETS = freetype jpeg libpng16 zlib qhull
-  EXTRAS = jbig2dec cmake openjp2 mupdf ogg theora vpx ffmpeg glfw zeromq pixman cairo
-     DIR = 
+ TARGETS = freetype jpeg libpng16 zlib qhull bzip2
+  EXTRAS = tiff ogg theora vpx openh264 ffmpeg glfw zeromq pixman cairo
+     DIR =
 
 default:
-	@for d in $(TARGETS); do make -C $$d; done
+	@set -e; for d in $(TARGETS); do $(MAKE) -C $$d PREFIX=$(DIR); done
 
 extras:
-	@for d in $(EXTRAS); do ( cd $$d && ./build.sh $(DIR) ); done
+	@set -e; for d in $(EXTRAS); do $(MAKE) -C $$d PREFIX=$(DIR); done
 
 clean:
-	@for d in $(TARGETS); do make -C $$d clean; done
+	@set -e; for d in $(TARGETS); do $(MAKE) -C $$d clean; done
 
 realclean: clean
 	rm -rf ./build
+
+.PHONY: default extras clean realclean

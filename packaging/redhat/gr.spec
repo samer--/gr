@@ -21,18 +21,17 @@ Release:			3%{?dist}
 License:			MIT
 Group:				Development/Libraries
 Source:				gr-%{fixedversion}.tar%{?compression:.%{compression}}
-Source1:			https://gr-framework.org/downloads/3rdparty/mupdf-1.6-source.tar.gz
-Source2:			https://gr-framework.org/downloads/3rdparty/libogg-1.3.2.tar.gz
-Source3:			https://gr-framework.org/downloads/3rdparty/libtheora-1.1.1.tar.gz
-Source4:			https://gr-framework.org/downloads/3rdparty/libvpx-1.4.0.tar.bz2
-Source5:			https://gr-framework.org/downloads/3rdparty/ffmpeg-2.1.4.tar.gz
-Source6:			https://gr-framework.org/downloads/3rdparty/glfw-3.1.1.tar.gz
-Source7:			https://gr-framework.org/downloads/3rdparty/zeromq-4.0.4.tar.gz
-Source8:			https://gr-framework.org/downloads/3rdparty/openjpeg-2.0.0.tar.gz
-Source9:			https://gr-framework.org/downloads/3rdparty/cmake-2.8.12.2.tar.gz
-Source10:			https://gr-framework.org/downloads/3rdparty/cairo-1.14.6.tar.xz
-Source11:			https://gr-framework.org/downloads/3rdparty/pixman-0.34.0.tar.gz
-# for vcversioner
+Source1:			https://gr-framework.org/downloads/3rdparty/libogg-1.3.2.tar.gz
+Source2:			https://gr-framework.org/downloads/3rdparty/libtheora-1.1.1.tar.gz
+Source3:			https://gr-framework.org/downloads/3rdparty/libvpx-1.4.0.tar.bz2
+Source4:			https://gr-framework.org/downloads/3rdparty/ffmpeg-4.2.1.tar.gz
+Source5:			https://gr-framework.org/downloads/3rdparty/glfw-3.1.1.tar.gz
+Source6:			https://gr-framework.org/downloads/3rdparty/zeromq-4.0.4.tar.gz
+Source7:			https://gr-framework.org/downloads/3rdparty/cmake-2.8.12.2.tar.gz
+Source8:			https://gr-framework.org/downloads/3rdparty/cairo-1.14.6.tar.xz
+Source9:			https://gr-framework.org/downloads/3rdparty/pixman-0.34.0.tar.gz
+Source10:			https://gr-framework.org/downloads/3rdparty/tiff-4.0.10.tar.gz
+Source11:			https://gr-framework.org/downloads/3rdparty/libopenh264-2.0.0.tar.gz
 BuildRequires:		git
 BuildRequires:		gcc-c++
 BuildRequires:		libX11-devel
@@ -48,7 +47,9 @@ BuildRequires: qt5-local
 BuildRequires: gcc-local
 BuildRequires: cmake-local
 %else
+%if 0%{?centos_version} < 800
 BuildRequires: qt-devel
+%endif
 %endif
 
 %if 0%{?suse_version}
@@ -81,14 +82,18 @@ BuildRequires:		cmake
 
 # wxWidgets BuildRequires
 %if 0%{?fedora_version}
+%if 0%{?fedora_version} >= 30
+BuildRequires:		wxGTK3-devel
+%else
 BuildRequires:		wxGTK-devel
+%endif
 %endif
 %if 0%{?suse_version}
 BuildRequires:		wxWidgets-devel
 %endif
 
 # Qt5 BuildRequires for Fedora
-%if 0%{?fedora_version} >= 23
+%if 0%{?fedora_version} >= 23 || 0%{?centos_version} >= 800
 %define qmake_qt5 qmake-qt5
 BuildRequires:		qt5-qtbase-devel
 %endif
@@ -100,24 +105,24 @@ GR, a universal framework for visualization applications
 %prep
 %setup -n gr-%{fixedversion}
 mkdir -p %{THIRDPARTY_SRC}
-tar -C %{THIRDPARTY_SRC} -xf %{SOURCE1}
-tar -C %{THIRDPARTY_SRC} -xf %{SOURCE2}
-tar -C %{THIRDPARTY_SRC} -xf %{SOURCE3}
-tar -C %{THIRDPARTY_SRC} -xf %{SOURCE4}
-tar -C %{THIRDPARTY_SRC} -xf %{SOURCE5}
-tar -C %{THIRDPARTY_SRC} -xf %{SOURCE6}
-tar -C %{THIRDPARTY_SRC} -xf %{SOURCE7}
-tar -C %{THIRDPARTY_SRC} -xf %{SOURCE8}
-tar -C %{THIRDPARTY_SRC} -xf %{SOURCE9}
-tar -C %{THIRDPARTY_SRC} -xf %{SOURCE10}
-tar -C %{THIRDPARTY_SRC} -xf %{SOURCE11}
+%{__cp} %{SOURCE1} %{THIRDPARTY_SRC}
+%{__cp} %{SOURCE2} %{THIRDPARTY_SRC}
+%{__cp} %{SOURCE3} %{THIRDPARTY_SRC}
+%{__cp} %{SOURCE4} %{THIRDPARTY_SRC}
+%{__cp} %{SOURCE5} %{THIRDPARTY_SRC}
+%{__cp} %{SOURCE6} %{THIRDPARTY_SRC}
+%{__cp} %{SOURCE7} %{THIRDPARTY_SRC}
+%{__cp} %{SOURCE8} %{THIRDPARTY_SRC}
+%{__cp} %{SOURCE9} %{THIRDPARTY_SRC}
+%{__cp} %{SOURCE10} %{THIRDPARTY_SRC}
+%{__cp} %{SOURCE11} %{THIRDPARTY_SRC}
 
 %build
 make -C 3rdparty GRDIR=%{grdir} DIR=`pwd`/%{THIRDPARTY}
 make -C 3rdparty extras GRDIR=%{grdir} DIR=`pwd`/%{THIRDPARTY}
 %if 0%{?__jcns}
-export CC=/usr/local/gcc/bin/gcc49
-export CXX=/usr/local/gcc/bin/g++49
+export CC=/usr/local/gcc/bin/gcc74
+export CXX=/usr/local/gcc/bin/g++74
 %endif
 make GRDIR=%{grdir} \
      EXTRA_CFLAGS=-I`pwd`/%{THIRDPARTY_INC} \
@@ -129,7 +134,7 @@ make GRDIR=%{grdir} \
 
 %install
 %{__install} -m 755 -d $RPM_BUILD_ROOT%{grdir}
-make install GRDIR=%{grdir} DESTDIR=${RPM_BUILD_ROOT}
+make install GRDIR=%{grdir} THIRDPARTYDIR=`pwd`/%{THIRDPARTY} DESTDIR=${RPM_BUILD_ROOT}
 
 %clean
 make realclean

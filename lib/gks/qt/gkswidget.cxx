@@ -6,13 +6,15 @@
 
 #include <QtGlobal>
 #if QT_VERSION >= 0x050000
-    #include <QtWidgets/QWidget>
+#include <QtWidgets/QWidget>
 #else
-    #include <QtGui/QWidget>
+#include <QtGui/QWidget>
 #endif
 #include <QtGui/QPainter>
+#include <QtGui/QPainterPath>
 #include <QtGui/QImage>
 #include <QIcon>
+#include <QProcessEnvironment>
 
 #endif
 
@@ -23,8 +25,7 @@
 
 #include "gkswidget.h"
 
-static
-void create_pixmap(ws_state_list *p)
+static void create_pixmap(ws_state_list *p)
 {
   p->pm = new QPixmap(p->width, p->height);
   p->pm->fill(Qt::white);
@@ -35,8 +36,7 @@ void create_pixmap(ws_state_list *p)
   get_pixmap();
 }
 
-static
-void resize_pixmap(int width, int height)
+static void resize_pixmap(int width, int height)
 {
   if (p->width != width || p->height != height)
     {
@@ -58,23 +58,27 @@ void resize_pixmap(int width, int height)
     }
 }
 
-GKSWidget::GKSWidget(QWidget *parent)
-  : QWidget(parent)
+GKSWidget::GKSWidget(QWidget *parent) : QWidget(parent)
 {
   is_mapped = 0;
   dl = NULL;
 
   gkss->fontfile = gks_open_font();
 
-  p->width = this->width();
-  p->height = this->height();
-  p->mwidth = this->widthMM() * 0.001;
-  p->mheight = this->heightMM() * 0.001;
+  p->device_dpi_x = this->physicalDpiX();
+  p->device_dpi_y = this->physicalDpiY();
+  p->width = 500;
+  p->height = 500;
+  p->mwidth = (double)p->width / p->device_dpi_x * 0.0254;
+  p->mheight = (double)p->height / p->device_dpi_y * 0.0254;
 
   initialize_data();
 
+  setMinimumSize(2, 2);
   setWindowTitle(tr("GKS QtTerm"));
   setWindowIcon(QIcon(":/images/gksqt.png"));
+
+  prevent_resize = !QProcessEnvironment::systemEnvironment().value("GKS_GKSQT_PREVENT_RESIZE").isEmpty();
 }
 
 void GKSWidget::paintEvent(QPaintEvent *)
@@ -85,43 +89,69 @@ void GKSWidget::paintEvent(QPaintEvent *)
       QPainter painter(this);
       p->pm->fill(Qt::white);
       interp(dl);
-      painter.drawPixmap(0, 0, *(p->pm));
+
+      if (!prevent_resize)
+        {
+          painter.drawPixmap(0, 0, *(p->pm));
+        }
+      else
+        {
+          int x = (width() - p->width) / 2;
+          int y = (height() - p->height) / 2;
+          painter.fillRect(0, 0, width(), height(), Qt::white);
+          painter.drawPixmap(x, y, *(p->pm));
+        }
     }
 }
 
 void GKSWidget::resizeEvent(QResizeEvent *event)
 {
-  p->mwidth = this->widthMM() * 0.001;
-  p->mheight = this->heightMM() * 0.001;
-  resize_pixmap(this->size().width(), this->size().height());
+  (void)event;
+  p->mwidth = (double)this->width() / p->device_dpi_x * 0.0254;
+  p->mheight = (double)this->height() / p->device_dpi_y * 0.0254;
+  resize_pixmap(this->width(), this->height());
   repaint();
 }
 
-static
-void set_window_size(char *s)
+static void set_window_size(char *s)
 {
   int sp = 0, *len, *f;
   double *vp;
-  len = (int *) (s + sp);
+  len = (int *)(s + sp);
   while (*len)
     {
-      f = (int *) (s + sp + sizeof(int));
+      f = (int *)(s + sp + sizeof(int));
       if (*f == 55)
         {
-          vp = (double *) (s + sp + 3 * sizeof(int));
-          p->width = nint((vp[1] - vp[0]) / p->mwidth * p->width);
-          p->height = nint((vp[3] - vp[2]) / p->mheight * p->height);
+          vp = (double *)(s + sp + 3 * sizeof(int));
+          p->mwidth = vp[1] - vp[0];
+          p->width = nint(p->device_dpi_x * p->mwidth / 0.0254);
+          if (p->width < 2)
+            {
+              p->width = 2;
+              p->mwidth = (double)p->width / p->device_dpi_x * 0.0254;
+            }
+
+          p->mheight = vp[3] - vp[2];
+          p->height = nint(p->device_dpi_y * p->mheight / 0.0254);
+          if (p->height < 2)
+            {
+              p->height = 2;
+              p->mheight = (double)p->height / p->device_dpi_y * 0.0254;
+            }
         }
       sp += *len;
-      len = (int *) (s + sp);
+      len = (int *)(s + sp);
     }
 }
 
 void GKSWidget::interpret(char *dl)
 {
   set_window_size(dl);
-
-  resize(p->width, p->height);
+  if (!prevent_resize)
+    {
+      resize(p->width, p->height);
+    }
   if (!is_mapped)
     {
       is_mapped = 1;

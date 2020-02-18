@@ -1,4 +1,13 @@
+ifeq ($(strip $(PREFIX)),)
+override PREFIX = $(abspath $(CURDIR)/../build)
+endif
+
  PNGCFLAGS = -O -I. -I../zlib/ -fPIC -fno-common $(ARCHS)
+ifeq ($(shell uname),Darwin)
+ifneq ($(notdir $(CC)),emcc)
+PNGCFLAGS += -mmacosx-version-min=10.11
+endif
+endif
       OBJS = \
 	png.o \
 	pngerror.o \
@@ -18,6 +27,8 @@
 
 .c.o:
 	$(CC) $(PNGCFLAGS) -o $@ -c $<
+
+default: install
 
 libpng.a: $(OBJS)
 	$(AR) crv $@ $?
@@ -45,6 +56,16 @@ depend:
 	pngwrite.c \
 	pngwtran.c \
 	pngwutil.c
+
+$(PREFIX)/lib/libpng.a: libpng.a
+	mkdir -p $(PREFIX)/lib/
+	mkdir -p $(PREFIX)/include/
+	cp libpng.a $(PREFIX)/lib/
+	cp *.h $(PREFIX)/include/
+
+install: $(PREFIX)/lib/libpng.a
+
+.PHONY: default install clean distclean depend
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 

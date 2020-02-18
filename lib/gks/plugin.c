@@ -25,12 +25,10 @@
 #endif
 #endif
 
-#define NAME  "plugin"
-#define ENTRY_ARGS \
-  int, int, int, int, int *, int, double *, int, double *, int, char *, void **
+#define NAME "plugin"
+#define ENTRY_ARGS int, int, int, int, int *, int, double *, int, double *, int, char *, void **
 
-static
-void *load_library(const char *name)
+static void *load_library(const char *name)
 {
   char pathname[MAXPATHLEN], symbol[255];
 #ifdef _WIN32
@@ -49,8 +47,7 @@ void *load_library(const char *name)
   if (handle == NULL)
     {
       grdir = gks_getenv("GRDIR");
-      if (grdir == NULL)
-        grdir = GRDIR;
+      if (grdir == NULL) grdir = GRDIR;
       sprintf(grbin, "%s/bin", grdir);
       SetDllDirectory(grbin);
       handle = LoadLibrary(pathname);
@@ -65,8 +62,7 @@ void *load_library(const char *name)
   if (handle == NULL)
     {
       grdir = gks_getenv("GRDIR");
-      if (grdir == NULL)
-        grdir = GRDIR;
+      if (grdir == NULL) grdir = GRDIR;
       sprintf(pathname, "%s/lib/%s.%s", grdir, name, EXTENSION);
       handle = dlopen(pathname, RTLD_LAZY);
     }
@@ -76,19 +72,18 @@ void *load_library(const char *name)
     {
       sprintf(symbol, "gks_%s", name);
 #ifdef _WIN32
-      entry = GetProcAddress(handle, symbol);
+      entry = (void *)GetProcAddress(handle, symbol);
 #else
       entry = dlsym(handle, symbol);
 #endif
       if (entry == NULL)
-	{
+        {
 #ifdef _WIN32
-	  gks_perror("%s: unresolved symbol", symbol);
+          gks_perror("%s: unresolved symbol", symbol);
 #else
-	  if ((error = dlerror()) != NULL)
-	    gks_perror((char *) error);
+          if ((error = dlerror()) != NULL) gks_perror((char *)error);
 #endif
-	}
+        }
     }
   else
     {
@@ -97,62 +92,67 @@ void *load_library(const char *name)
       ec = GetLastError();
       gks_perror("%s: can't load library, error %d (0x%x)", pathname, ec, ec);
 #else
-      if ((error = dlerror()) != NULL)
-	gks_perror((char *) error);
+      if ((error = dlerror()) != NULL) gks_perror((char *)error);
 #endif
     }
 
   return entry;
 }
 
-static
-const char *get_qt_version_string()
+static const char *get_qt_version_string()
 {
   typedef const char *qversion_t();
   qversion_t *qVersion = NULL;
 
 #ifdef _WIN32
-  void *handle = GetModuleHandle("Qt5Core.dll");
-  if(handle != NULL)
-    qVersion = (qversion_t *) GetProcAddress(handle, "qVersion");
+  HMODULE handle = GetModuleHandle("Qt5Core.dll");
+  if (handle != NULL) qVersion = (qversion_t *)GetProcAddress(handle, "qVersion");
 #else
-  qVersion = (qversion_t *) dlsym(dlopen(NULL, RTLD_LAZY), "qVersion");
+  qVersion = (qversion_t *)dlsym(dlopen(NULL, RTLD_LAZY), "qVersion");
 #endif
-  if(qVersion != NULL)
-    return qVersion();
+  if (qVersion != NULL) return qVersion();
 
   return NULL;
 }
 
-void gks_drv_plugin(
-  int fctid, int dx, int dy, int dimx, int *ia,
-  int lr1, double *r1, int lr2, double *r2, int lc, char *chars,
-  void **ptr)
+void gks_drv_plugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double *r1, int lr2, double *r2, int lc,
+                    char *chars, void **ptr)
 {
   static const char *name = NULL;
-  static void (*entry) (ENTRY_ARGS) = NULL;
+  static void (*entry)(ENTRY_ARGS) = NULL;
   const char *env;
 
   if (name == NULL)
     {
       name = NAME;
-      if ((env = gks_getenv("GKS_PLUGIN")) != NULL)
-	name = env;
+      if ((env = gks_getenv("GKS_PLUGIN")) != NULL) name = env;
 
       *(void **)(&entry) = load_library(name);
     }
 
-  if (entry != NULL)
-    (*entry) (fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
+  if (entry != NULL) (*entry)(fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
 }
 
-void gks_gs_plugin(
-  int fctid, int dx, int dy, int dimx, int *ia,
-  int lr1, double *r1, int lr2, double *r2, int lc, char *chars,
-  void **ptr)
+void gks_x11_plugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double *r1, int lr2, double *r2, int lc,
+                    char *chars, void **ptr)
 {
-  static char *name = NULL;
-  static void (*entry) (ENTRY_ARGS) = NULL;
+  static const char *name = NULL;
+  static void (*entry)(ENTRY_ARGS) = NULL;
+
+  if (name == NULL)
+    {
+      name = "x11plugin";
+      *(void **)(&entry) = load_library(name);
+    }
+
+  if (entry != NULL) (*entry)(fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
+}
+
+void gks_gs_plugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double *r1, int lr2, double *r2, int lc,
+                   char *chars, void **ptr)
+{
+  static const char *name = NULL;
+  static void (*entry)(ENTRY_ARGS) = NULL;
 
   if (name == NULL)
     {
@@ -160,35 +160,14 @@ void gks_gs_plugin(
       *(void **)(&entry) = load_library(name);
     }
 
-  if (entry != NULL)
-    (*entry) (fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
+  if (entry != NULL) (*entry)(fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
 }
 
-void gks_fig_plugin(
-  int fctid, int dx, int dy, int dimx, int *ia,
-  int lr1, double *r1, int lr2, double *r2, int lc, char *chars,
-  void **ptr)
+void gks_gtk_plugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double *r1, int lr2, double *r2, int lc,
+                    char *chars, void **ptr)
 {
-  static char *name = NULL;
-  static void (*entry) (ENTRY_ARGS) = NULL;
-
-  if (name == NULL)
-    {
-      name = "figplugin";
-      *(void **)(&entry) = load_library(name);
-    }
-
-  if (entry != NULL)
-    (*entry) (fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
-}
-
-void gks_gtk_plugin(
-  int fctid, int dx, int dy, int dimx, int *ia,
-  int lr1, double *r1, int lr2, double *r2, int lc, char *chars,
-  void **ptr)
-{
-  static char *name = NULL;
-  static void (*entry) (ENTRY_ARGS) = NULL;
+  static const char *name = NULL;
+  static void (*entry)(ENTRY_ARGS) = NULL;
 
   if (name == NULL)
     {
@@ -196,17 +175,14 @@ void gks_gtk_plugin(
       *(void **)(&entry) = load_library(name);
     }
 
-  if (entry != NULL)
-    (*entry) (fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
+  if (entry != NULL) (*entry)(fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
 }
 
-void gks_wx_plugin(
-  int fctid, int dx, int dy, int dimx, int *ia,
-  int lr1, double *r1, int lr2, double *r2, int lc, char *chars,
-  void **ptr)
+void gks_wx_plugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double *r1, int lr2, double *r2, int lc,
+                   char *chars, void **ptr)
 {
-  static char *name = NULL;
-  static void (*entry) (ENTRY_ARGS) = NULL;
+  static const char *name = NULL;
+  static void (*entry)(ENTRY_ARGS) = NULL;
 
   if (name == NULL)
     {
@@ -214,48 +190,41 @@ void gks_wx_plugin(
       *(void **)(&entry) = load_library(name);
     }
 
-  if (entry != NULL)
-    (*entry) (fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
+  if (entry != NULL) (*entry)(fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
 }
 
-void gks_qt_plugin(
-  int fctid, int dx, int dy, int dimx, int *ia,
-  int lr1, double *r1, int lr2, double *r2, int lc, char *chars,
-  void **ptr)
+void gks_qt_plugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double *r1, int lr2, double *r2, int lc,
+                   char *chars, void **ptr)
 {
-  static char *name = NULL;
-  static void (*entry) (ENTRY_ARGS) = NULL;
+  static const char *name = NULL;
+  static void (*entry)(ENTRY_ARGS) = NULL;
   const char *qt_version_string;
   int qt_major_version;
 
   if (name == NULL)
     {
       qt_version_string = getenv("GKS_QT_VERSION");
-      if (!qt_version_string) {
-        qt_version_string = get_qt_version_string();
-      }
-      if(qt_version_string != NULL)
-      {
-        qt_major_version = atoi(qt_version_string);
-        if(qt_major_version == 5)
-          name = "qt5plugin";
-      }
-      if(name == NULL)
-        name = "qtplugin";
+      if (!qt_version_string)
+        {
+          qt_version_string = get_qt_version_string();
+        }
+      if (qt_version_string != NULL)
+        {
+          qt_major_version = atoi(qt_version_string);
+          if (qt_major_version == 5) name = "qt5plugin";
+        }
+      if (name == NULL) name = "qtplugin";
       *(void **)(&entry) = load_library(name);
     }
 
-  if (entry != NULL)
-    (*entry) (fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
+  if (entry != NULL) (*entry)(fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
 }
 
-void gks_svg_plugin(
-  int fctid, int dx, int dy, int dimx, int *ia,
-  int lr1, double *r1, int lr2, double *r2, int lc, char *chars,
-  void **ptr)
+void gks_svg_plugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double *r1, int lr2, double *r2, int lc,
+                    char *chars, void **ptr)
 {
-  static char *name = NULL;
-  static void (*entry) (ENTRY_ARGS) = NULL;
+  static const char *name = NULL;
+  static void (*entry)(ENTRY_ARGS) = NULL;
 
   if (name == NULL)
     {
@@ -263,17 +232,14 @@ void gks_svg_plugin(
       *(void **)(&entry) = load_library(name);
     }
 
-  if (entry != NULL)
-    (*entry) (fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
+  if (entry != NULL) (*entry)(fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
 }
 
-void gks_wmf_plugin(
-  int fctid, int dx, int dy, int dimx, int *ia,
-  int lr1, double *r1, int lr2, double *r2, int lc, char *chars,
-  void **ptr)
+void gks_wmf_plugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double *r1, int lr2, double *r2, int lc,
+                    char *chars, void **ptr)
 {
-  static char *name = NULL;
-  static void (*entry) (ENTRY_ARGS) = NULL;
+  static const char *name = NULL;
+  static void (*entry)(ENTRY_ARGS) = NULL;
 
   if (name == NULL)
     {
@@ -281,17 +247,14 @@ void gks_wmf_plugin(
       *(void **)(&entry) = load_library(name);
     }
 
-  if (entry != NULL)
-    (*entry) (fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
+  if (entry != NULL) (*entry)(fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
 }
 
-void gks_quartz_plugin(
-  int fctid, int dx, int dy, int dimx, int *ia,
-  int lr1, double *r1, int lr2, double *r2, int lc, char *chars,
-  void **ptr)
+void gks_quartz_plugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double *r1, int lr2, double *r2, int lc,
+                       char *chars, void **ptr)
 {
-  static char *name = NULL;
-  static void (*entry) (ENTRY_ARGS) = NULL;
+  static const char *name = NULL;
+  static void (*entry)(ENTRY_ARGS) = NULL;
 
   if (name == NULL)
     {
@@ -299,17 +262,14 @@ void gks_quartz_plugin(
       *(void **)(&entry) = load_library(name);
     }
 
-  if (entry != NULL)
-    (*entry) (fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
+  if (entry != NULL) (*entry)(fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
 }
 
-void gks_gl_plugin(
-  int fctid, int dx, int dy, int dimx, int *ia,
-  int lr1, double *r1, int lr2, double *r2, int lc, char *chars,
-  void **ptr)
+void gks_gl_plugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double *r1, int lr2, double *r2, int lc,
+                   char *chars, void **ptr)
 {
-  static char *name = NULL;
-  static void (*entry) (ENTRY_ARGS) = NULL;
+  static const char *name = NULL;
+  static void (*entry)(ENTRY_ARGS) = NULL;
 
   if (name == NULL)
     {
@@ -317,35 +277,14 @@ void gks_gl_plugin(
       *(void **)(&entry) = load_library(name);
     }
 
-  if (entry != NULL)
-    (*entry) (fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
+  if (entry != NULL) (*entry)(fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
 }
 
-void gks_mov_plugin(
-  int fctid, int dx, int dy, int dimx, int *ia,
-  int lr1, double *r1, int lr2, double *r2, int lc, char *chars,
-  void **ptr)
+void gks_cairo_plugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double *r1, int lr2, double *r2, int lc,
+                      char *chars, void **ptr)
 {
-  static char *name = NULL;
-  static void (*entry) (ENTRY_ARGS) = NULL;
-
-  if (name == NULL)
-    {
-      name = "movplugin";
-      *(void **)(&entry) = load_library(name);
-    }
-
-  if (entry != NULL)
-    (*entry) (fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
-}
-
-void gks_cairo_plugin(
-  int fctid, int dx, int dy, int dimx, int *ia,
-  int lr1, double *r1, int lr2, double *r2, int lc, char *chars,
-  void **ptr)
-{
-  static char *name = NULL;
-  static void (*entry) (ENTRY_ARGS) = NULL;
+  static const char *name = NULL;
+  static void (*entry)(ENTRY_ARGS) = NULL;
 
   if (name == NULL)
     {
@@ -353,17 +292,14 @@ void gks_cairo_plugin(
       *(void **)(&entry) = load_library(name);
     }
 
-  if (entry != NULL)
-    (*entry) (fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
+  if (entry != NULL) (*entry)(fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
 }
 
-void gks_zmq_plugin(
-  int fctid, int dx, int dy, int dimx, int *ia,
-  int lr1, double *r1, int lr2, double *r2, int lc, char *chars,
-  void **ptr)
+void gks_zmq_plugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double *r1, int lr2, double *r2, int lc,
+                    char *chars, void **ptr)
 {
-  static char *name = NULL;
-  static void (*entry) (ENTRY_ARGS) = NULL;
+  static const char *name = NULL;
+  static void (*entry)(ENTRY_ARGS) = NULL;
 
   if (name == NULL)
     {
@@ -371,35 +307,14 @@ void gks_zmq_plugin(
       *(void **)(&entry) = load_library(name);
     }
 
-  if (entry != NULL)
-    (*entry) (fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
+  if (entry != NULL) (*entry)(fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
 }
 
-void gks_htm_plugin(
-  int fctid, int dx, int dy, int dimx, int *ia,
-  int lr1, double *r1, int lr2, double *r2, int lc, char *chars,
-  void **ptr)
+void gks_pgf_plugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double *r1, int lr2, double *r2, int lc,
+                    char *chars, void **ptr)
 {
-  static char *name = NULL;
-  static void (*entry) (ENTRY_ARGS) = NULL;
-
-  if (name == NULL)
-    {
-      name = "htmplugin";
-      *(void **)(&entry) = load_library(name);
-    }
-
-  if (entry != NULL)
-    (*entry) (fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
-}
-
-void gks_pgf_plugin(
-  int fctid, int dx, int dy, int dimx, int *ia,
-  int lr1, double *r1, int lr2, double *r2, int lc, char *chars,
-  void **ptr)
-{
-  static char *name = NULL;
-  static void (*entry) (ENTRY_ARGS) = NULL;
+  static const char *name = NULL;
+  static void (*entry)(ENTRY_ARGS) = NULL;
 
   if (name == NULL)
     {
@@ -407,6 +322,20 @@ void gks_pgf_plugin(
       *(void **)(&entry) = load_library(name);
     }
 
-  if (entry != NULL)
-    (*entry) (fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
+  if (entry != NULL) (*entry)(fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
+}
+
+void gks_video_plugin(int fctid, int dx, int dy, int dimx, int *ia, int lr1, double *r1, int lr2, double *r2, int lc,
+                      char *chars, void **ptr)
+{
+  static const char *name = NULL;
+  static void (*entry)(ENTRY_ARGS) = NULL;
+
+  if (name == NULL)
+    {
+      name = "videoplugin";
+      *(void **)(&entry) = load_library(name);
+    }
+
+  if (entry != NULL) (*entry)(fctid, dx, dy, dimx, ia, lr1, r1, lr2, r2, lc, chars, ptr);
 }

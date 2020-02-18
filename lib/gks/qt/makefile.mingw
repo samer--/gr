@@ -1,8 +1,13 @@
+GKSLIB = ../libGKS.lib
+
 default: gksqt.exe
 
-gksqt.exe: afm.cxx dl.cxx error.cxx font.cxx gksqt.cxx gksserver.cxx gkswidget.cxx io.cxx malloc.cxx util.cxx
-	wget https://gr-framework.org/downloads/3rdparty/qt5-runtime-Windows-i686.tar.gz
-	tar xzf qt5-runtime-Windows-i686.tar.gz
+$(GKSLIB):
+	$(MAKE) -C .. libGKS.lib
+
+gksqt.exe: gksqt.cxx gksserver.cxx gkswidget.cxx $(GKSLIB)
+	wget https://gr-framework.org/downloads/3rdparty/qt5-runtime-Windows-$(ARCHITECTURE).tar.gz
+	tar xzf qt5-runtime-Windows-$(ARCHITECTURE).tar.gz
 	moc -DGRDIR=\"$(GRDIR)\" -Iinclude gkswidget.h -o moc_gkswidget.cxx
 	moc -DGRDIR=\"$(GRDIR)\" -Iinclude gksserver.h -o moc_gksserver.cxx
 	rcc -o qrc_gksqt.cxx gksqt.qrc

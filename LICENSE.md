@@ -1,9 +1,9 @@
 The GR framework is licensed under the MIT License.
 
-> Copyright (c) 2012-2015: Josef Heinen, Florian Rhiem, Christian Felder,
+> Copyright (c) 2012-2020: Josef Heinen, Florian Rhiem, Christian Felder,
 > and other contributors:
 >
-> http://gr-framework.org/credits.html
+> https://gr-framework.org/contributors.html
 >
 > Permission is hereby granted, free of charge, to any person obtaining
 > a copy of this software and associated documentation files (the
@@ -27,6 +27,5 @@ The GR framework is licensed under the MIT License.
 The GR framework can be built with plugins that use code from the
 following projects, which have their own licenses:
 
-- MuPDF - a lightweight PDF and XPS viewer (AFPL)
 - Ghostscript - an interpreter for the PostScript language and for PDF (AFPL)
 - FFmpeg - a multimedia framework (LGPL / GPLv2)

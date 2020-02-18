@@ -1,4 +1,5 @@
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,8 +22,8 @@
 #define DBL_EPSILON 2.2204460492503131e-16
 #endif
 
-#define OK          0
-#define MAX_POINTS  2048
+#define OK 0
+#define MAX_POINTS 2048
 
 static gks_state_list_t *s = NULL, *seg_state = NULL;
 
@@ -33,101 +34,82 @@ static double f_arr_1[6], f_arr_2[6];
 static char c_arr[1];
 static int id = 0;
 
-static
-gks_list_t *open_ws = NULL, *active_ws = NULL, *av_ws_types = NULL;
+static gks_list_t *open_ws = NULL, *active_ws = NULL, *av_ws_types = NULL;
 
-static
-ws_descr_t ws_types[] = {
-  {   2, GKS_K_METERS, 1.00000, 1.00000,65536,65536, 4, "mf", NULL },
-  {   3, GKS_K_METERS, 1.00000, 1.00000,65536,65536, 5, "mf", NULL },
-  {   5, GKS_K_METERS, 1.00000, 1.00000,32767,32767, 3, NULL, NULL },
-  {   7, GKS_K_METERS, 1.00000, 1.00000,65536,65536, 4, "cgm", NULL },
-  {   8, GKS_K_METERS, 1.00000, 1.00000,65536,65536, 4, "cgm", NULL },
-  {  41, GKS_K_METERS, 0.33300, 0.28100, 1024,  864, 2, NULL, NULL },
-  {  51, GKS_K_METERS, 0.25400, 0.19050, 1024,  768, 2, NULL, NULL },
-  {  61, GKS_K_METERS, 0.28575, 0.19685, 6750, 4650, 0, "ps", NULL },
-  {  62, GKS_K_METERS, 0.28575, 0.19685, 6750, 4650, 0, "ps", NULL },
-  {  63, GKS_K_METERS, 0.28575, 0.19685, 6750, 4650, 0, "ps", NULL },
-  {  64, GKS_K_METERS, 0.28575, 0.19685, 6750, 4650, 0, "ps", NULL },
-  { 100, GKS_K_METERS, 0.25400, 0.19050, 1024,  768, 0, NULL, NULL },
-  { 101, GKS_K_METERS, 0.28800, 0.19840,  810,  558, 0, "pdf", NULL },
-  { 102, GKS_K_METERS, 0.28800, 0.19840,  810,  558, 0, "pdf", NULL },
-  { 120, GKS_K_METERS, 0.28800, 0.19840,  810,  558, 0, "mov", NULL },
-  { 130, GKS_K_METERS, 0.28800, 0.19840,  810,  558, 0, "gif", NULL },
-  { 140, GKS_K_METERS, 0.28575, 0.19685, 6750, 4650, 0, "png", NULL },
-  { 141, GKS_K_METERS, 0.25400, 0.19050, 1024,  768, 0, NULL, NULL },
-  { 142, GKS_K_METERS, 0.25400, 0.19050, 1024,  768, 0, NULL, NULL },
-  { 150, GKS_K_METERS, 0.20320, 0.15240,  560,  420, 0, "six", NULL },
-  { 210, GKS_K_METERS, 0.33300, 0.28100, 1024,  864, 0, NULL, NULL },
-  { 211, GKS_K_METERS, 0.33300, 0.28100, 1024,  864, 2, NULL, NULL },
-  { 212, GKS_K_METERS, 0.33300, 0.28100, 1024,  864, 2, NULL, NULL },
-  { 213, GKS_K_METERS, 0.33300, 0.28100, 1024,  864, 2, NULL, NULL },
-  { 214, GKS_K_METERS, 0.33300, 0.28100, 1024,  864, 0, "rf", "GKS_RF" },
-  { 215, GKS_K_METERS, 0.33300, 0.28100, 1024,  864, 0, "gif", "GKS_GIF" },
-  { 216, GKS_K_METERS, 0.33300, 0.28100, 1024,  864, 0, "uil", "GKS_UIL" },
-  { 217, GKS_K_METERS, 0.33300, 0.28100, 1024,  864, 0, NULL, NULL },
-  { 218, GKS_K_METERS, 0.33300, 0.28100, 1024,  864, 0, "gif", NULL },
-  { 301, GKS_K_METERS, 0.33300, 0.28100, 1024,  864, 0, NULL, NULL },
-  { 314, GKS_K_METERS, 0.25400, 0.19050, 1024,  768, 0, "tex", NULL },
-  { 320, GKS_K_METERS, 0.28575, 0.19685, 6750, 4650, 0, NULL, NULL },
-  { 321, GKS_K_METERS, 0.28575, 0.19685, 6750, 4650, 0, NULL, NULL },
-  { 322, GKS_K_METERS, 0.28575, 0.19685, 6750, 4650, 0, NULL, NULL },
-  { 323, GKS_K_METERS, 0.28575, 0.19685, 6750, 4650, 0, NULL, NULL },
-  { 370, GKS_K_METERS, 0.25400, 0.19050, 1024,  768, 0, "fig", NULL },
-  { 371, GKS_K_METERS, 0.25400, 0.19050, 1024,  768, 0, NULL, NULL },
-  { 380, GKS_K_METERS, 0.25400, 0.19050, 1024,  768, 0, NULL, NULL },
-  { 381, GKS_K_METERS, 0.25400, 0.19050, 1024,  768, 0, NULL, NULL },
-  { 382, GKS_K_METERS, 0.25400, 0.19050, 1024,  768, 0, "svg", NULL },
-  { 390, GKS_K_METERS, 0.25400, 0.19050, 1024,  768, 0, "wmf", NULL },
-  { 400, GKS_K_METERS, 0.28560, 0.17850, 1280,  800, 0, NULL, NULL },
-  { 410, GKS_K_METERS, 0.28560, 0.17850, 1280,  800, 0, NULL, NULL },
-  { 411, GKS_K_METERS, 0.28560, 0.17850, 1280,  800, 0, NULL, NULL },
-  { 415, GKS_K_METERS, 0.28560, 0.17850, 1280,  800, 0, NULL, NULL },
-  { 420, GKS_K_METERS, 0.25400, 0.19050, 1024,  768, 0, NULL, NULL },
-  { 430, GKS_K_METERS, 0.25400, 0.19050, 1024,  768, 0, NULL, NULL }
-};
+static ws_descr_t ws_types[] = {{2, GKS_K_METERS, 1.00000, 1.00000, 65536, 65536, 4, "mf", NULL},
+                                {3, GKS_K_METERS, 1.00000, 1.00000, 65536, 65536, 5, "mf", NULL},
+                                {5, GKS_K_METERS, 1.00000, 1.00000, 32767, 32767, 3, NULL, NULL},
+                                {41, GKS_K_METERS, 0.33300, 0.28100, 1024, 864, 2, NULL, NULL},
+                                {61, GKS_K_METERS, 0.28575, 0.19685, 6750, 4650, 0, "ps", NULL},
+                                {62, GKS_K_METERS, 0.28575, 0.19685, 6750, 4650, 0, "ps", NULL},
+                                {63, GKS_K_METERS, 0.28575, 0.19685, 6750, 4650, 0, "ps", NULL},
+                                {64, GKS_K_METERS, 0.28575, 0.19685, 6750, 4650, 0, "ps", NULL},
+                                {100, GKS_K_METERS, 0.25400, 0.19050, 1024, 768, 0, NULL, NULL},
+                                {101, GKS_K_METERS, 0.28800, 0.19840, 810, 558, 0, "pdf", NULL},
+                                {102, GKS_K_METERS, 0.28800, 0.19840, 810, 558, 0, "pdf", NULL},
+                                {120, GKS_K_METERS, 0.28800, 0.19840, 810, 558, 0, "mov", NULL},
+                                {130, GKS_K_METERS, 0.28800, 0.19840, 810, 558, 0, "gif", NULL},
+                                {140, GKS_K_METERS, 0.28575, 0.19685, 6750, 4650, 0, "png", NULL},
+                                {141, GKS_K_METERS, 0.25400, 0.19050, 1024, 768, 0, NULL, NULL},
+                                {142, GKS_K_METERS, 0.25400, 0.19050, 1024, 768, 0, NULL, NULL},
+                                {143, GKS_K_METERS, 0.28575, 0.19685, 6750, 4650, 0, NULL, NULL},
+                                {144, GKS_K_METERS, 0.28575, 0.19685, 6750, 4650, 0, "jpg", NULL},
+                                {145, GKS_K_METERS, 0.28575, 0.19685, 6750, 4650, 0, "bmp", NULL},
+                                {146, GKS_K_METERS, 0.28575, 0.19685, 6750, 4650, 0, "tif", NULL},
+                                {150, GKS_K_METERS, 0.20320, 0.15240, 560, 420, 0, "six", NULL},
+                                {160, GKS_K_METERS, 0.25400, 0.19050, 1024, 768, 0, "mp4", NULL},
+                                {161, GKS_K_METERS, 0.25400, 0.19050, 1024, 768, 0, "webm", NULL},
+                                {162, GKS_K_METERS, 0.25400, 0.19050, 1024, 768, 0, "ogg", NULL},
+                                {210, GKS_K_METERS, 0.33300, 0.28100, 1024, 864, 0, NULL, NULL},
+                                {211, GKS_K_METERS, 0.33300, 0.28100, 1024, 864, 2, NULL, NULL},
+                                {212, GKS_K_METERS, 0.33300, 0.28100, 1024, 864, 2, NULL, NULL},
+                                {213, GKS_K_METERS, 0.33300, 0.28100, 1024, 864, 2, NULL, NULL},
+                                {214, GKS_K_METERS, 0.33300, 0.28100, 1024, 864, 0, "rf", "GKS_RF"},
+                                {215, GKS_K_METERS, 0.33300, 0.28100, 1024, 864, 0, "gif", "GKS_GIF"},
+                                {216, GKS_K_METERS, 0.33300, 0.28100, 1024, 864, 0, "uil", "GKS_UIL"},
+                                {217, GKS_K_METERS, 0.33300, 0.28100, 1024, 864, 0, NULL, NULL},
+                                {218, GKS_K_METERS, 0.33300, 0.28100, 1024, 864, 0, "gif", NULL},
+                                {301, GKS_K_METERS, 0.33300, 0.28100, 1024, 864, 0, NULL, NULL},
+                                {314, GKS_K_METERS, 0.25400, 0.19050, 1024, 768, 0, "tex", NULL},
+                                {320, GKS_K_METERS, 0.28575, 0.19685, 6750, 4650, 0, NULL, NULL},
+                                {321, GKS_K_METERS, 0.28575, 0.19685, 6750, 4650, 0, NULL, NULL},
+                                {322, GKS_K_METERS, 0.28575, 0.19685, 6750, 4650, 0, NULL, NULL},
+                                {323, GKS_K_METERS, 0.28575, 0.19685, 6750, 4650, 0, NULL, NULL},
+                                {371, GKS_K_METERS, 0.25400, 0.19050, 1024, 768, 0, NULL, NULL},
+                                {380, GKS_K_METERS, 0.25400, 0.19050, 1024, 768, 0, NULL, NULL},
+                                {381, GKS_K_METERS, 0.25400, 0.19050, 1024, 768, 0, NULL, NULL},
+                                {382, GKS_K_METERS, 0.25400, 0.19050, 4096, 3072, 0, "svg", NULL},
+                                {390, GKS_K_METERS, 0.25400, 0.19050, 1024, 768, 0, "wmf", NULL},
+                                {400, GKS_K_METERS, 0.28560, 0.17850, 1280, 800, 0, NULL, NULL},
+                                {410, GKS_K_METERS, 0.28560, 0.17850, 1280, 800, 0, NULL, NULL},
+                                {411, GKS_K_METERS, 0.28560, 0.17850, 1280, 800, 0, NULL, NULL},
+                                {415, GKS_K_METERS, 0.28560, 0.17850, 1280, 800, 0, NULL, NULL},
+                                {420, GKS_K_METERS, 0.25400, 0.19050, 1024, 768, 0, NULL, NULL}};
 
-static
-int num_ws_types = sizeof(ws_types) / sizeof(ws_types[0]);
+static int num_ws_types = sizeof(ws_types) / sizeof(ws_types[0]);
 
-static
-int predef_font[6] = {1, 1, 1, -2, -3, -4};
+static int predef_font[6] = {1, 1, 1, -2, -3, -4};
 
-static
-int predef_prec[6] = {0, 1, 2, 2, 2, 2};
+static int predef_prec[6] = {0, 1, 2, 2, 2, 2};
 
-static
-int predef_ints[5] = {0, 1, 3, 3, 3};
+static int predef_ints[5] = {0, 1, 3, 3, 3};
 
-static
-int predef_styli[5] = {1, 1, 1, 2, 3};
+static int predef_styli[5] = {1, 1, 1, 2, 3};
 
-static
-int gksgral_marker_types[14] =
-  {
-    -20, -15, -18, -5, -17, -3, -7, -1, -16, -19, -14, -12, -2, -6
-  };
+static int gksgral_marker_types[14] = {-20, -15, -18, -5, -17, -3, -7, -1, -16, -19, -14, -12, -2, -6};
 
-static
-int gksgral_fill_styles[6] = { 7, 7, 1, 8, 8, 2 };
+static int gksgral_fill_styles[6] = {7, 7, 1, 8, 8, 2};
 
-static
-int gddm_fill_styles[6] = { 4, 10, 3, 9, 2, 1 };
+static int gddm_fill_styles[6] = {4, 10, 3, 9, 2, 1};
 
 extern int gks_errno;
 
-static
-double *x = NULL, *y = NULL;
+static double *x = NULL, *y = NULL;
 
-static
-int max_points = 0;
+static int max_points = 0;
 
-static
-void gks_ddlk(
-  int fctid,
-  int dx, int dy, int dimx, int *i_arr,
-  int len_f_arr_1, double *f_arr_1, int len_f_arr_2, double *f_arr_2,
-  int len_c_arr, char *c_arr, void **ptr)
+static void gks_ddlk(int fctid, int dx, int dy, int dimx, int *i_arr, int len_f_arr_1, double *f_arr_1, int len_f_arr_2,
+                     double *f_arr_2, int len_c_arr, char *c_arr, void **ptr)
 {
   gks_list_t *list;
   ws_list_t *ws;
@@ -166,244 +148,285 @@ void gks_ddlk(
 
   while (list != NULL)
     {
-      ws = (ws_list_t *) list->ptr;
+      ws = (ws_list_t *)list->ptr;
 
       if (i_arr[0] == ws->wkid || !have_id)
-	{
-	  if (id != 0)
-	    {
-	      if (id != ws->wkid)
-		{
-		  list = list->next;
-		  continue;
-	      }
-	    }
-	  ptr = &ws->ptr;
+        {
+          if (id != 0)
+            {
+              if (id != ws->wkid)
+                {
+                  list = list->next;
+                  continue;
+                }
+            }
+          ptr = &ws->ptr;
 
 #ifndef EMSCRIPTEN
-	  switch (ws->wtype)
-	    {
-	    case   2:
-	      gks_drv_mo(fctid, dx, dy, dimx, i_arr,
-		len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
-		ptr);
-	      break;
+          switch (ws->wtype)
+            {
+            case 2:
+              gks_drv_mo(fctid, dx, dy, dimx, i_arr, len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr, ptr);
+              break;
 
-	    case   3:
-	      gks_drv_mi(fctid, dx, dy, dimx, i_arr,
-		len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
-		ptr);
-	      break;
+            case 3:
+              gks_drv_mi(fctid, dx, dy, dimx, i_arr, len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr, ptr);
+              break;
 
-	    case   5:
-	      gks_drv_wiss(fctid, dx, dy, dimx, i_arr,
-		len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
-		ptr);
-	      break;
+            case 5:
+              gks_drv_wiss(fctid, dx, dy, dimx, i_arr, len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
+                           ptr);
+              break;
 
-	    case   7: case   8:
-	      gks_drv_cgm(fctid, dx, dy, dimx, i_arr,
-		len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
-		ptr);
-	      break;
+            case 41:
+              gks_drv_win(fctid, dx, dy, dimx, i_arr, len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
+                          ptr);
+              break;
 
-	    case  41:
-	      gks_drv_win(fctid, dx, dy, dimx, i_arr,
-		len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
-		ptr);
-	      break;
+            case 61:
+            case 62:
+            case 63:
+            case 64:
+              gks_drv_ps(fctid, dx, dy, dimx, i_arr, len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr, ptr);
+              break;
 
-	    case  51:
-	      gks_drv_mac(fctid, dx, dy, dimx, i_arr,
-		len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
-		ptr);
-	      break;
+            case 100:
+              break;
 
-	    case  61: case  62: case  63: case  64:
-	      gks_drv_ps(fctid, dx, dy, dimx, i_arr,
-		len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
-		ptr);
-	      break;
+            case 101:
+            case 102:
+              gks_drv_pdf(fctid, dx, dy, dimx, i_arr, len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
+                          ptr);
+              break;
 
-	    case 100:
-	      break;
+            case 210:
+            case 211:
+            case 212:
+            case 213:
+            case 214:
+            case 215:
+            case 216:
+            case 217:
+            case 218:
+              gks_x11_plugin(fctid, dx, dy, dimx, i_arr, len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
+                             ptr);
+              break;
 
-	    case 101: case 102:
-	      gks_drv_pdf(fctid, dx, dy, dimx, i_arr,
-		len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
-		ptr);
-	      break;
+            case 410:
+            case 411:
+              gks_drv_socket(fctid, dx, dy, dimx, i_arr, len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
+                             ptr);
+              break;
 
-	    case 210: case 211: case 212: case 213:
-	    case 214: case 215: case 216: case 217:
-	    case 218:
-	      gks_drv_x11(fctid, dx, dy, dimx, i_arr,
-		len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
-		ptr);
-	      break;
+            case 415:
+              gks_zmq_plugin(fctid, dx, dy, dimx, i_arr, len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
+                             ptr);
+              break;
 
-	    case 410:
-	    case 411:
-	      gks_drv_socket(fctid, dx, dy, dimx, i_arr,
-		len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
-		ptr);
-	      break;
+            case 301:
+              gks_drv_plugin(fctid, dx, dy, dimx, i_arr, len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
+                             ptr);
+              break;
 
-	    case 415:
-	      gks_zmq_plugin(fctid, dx, dy, dimx, i_arr,
-		len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
-		ptr);
-	      break;
+            case 320:
+            case 321:
+            case 322:
+            case 323:
+              gks_gs_plugin(fctid, dx, dy, dimx, i_arr, len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
+                            ptr);
+              break;
 
-	    case 301:
-	      gks_drv_plugin(fctid, dx, dy, dimx, i_arr,
-		len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
-		ptr);
-	      break;
+            case 371:
+              gks_gtk_plugin(fctid, dx, dy, dimx, i_arr, len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
+                             ptr);
+              break;
 
-	    case 320: case 321: case 322: case 323:
-	      gks_gs_plugin(fctid, dx, dy, dimx, i_arr,
-		len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
-		ptr);
-	      break;
+            case 380:
+              gks_wx_plugin(fctid, dx, dy, dimx, i_arr, len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
+                            ptr);
+              break;
 
-	    case 370:
-	      gks_fig_plugin(fctid, dx, dy, dimx, i_arr,
-		len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
-		ptr);
-	      break;
+            case 381:
+              gks_qt_plugin(fctid, dx, dy, dimx, i_arr, len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
+                            ptr);
+              break;
 
-	    case 371:
-	      gks_gtk_plugin(fctid, dx, dy, dimx, i_arr,
-		len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
-		ptr);
-	      break;
+            case 382:
+              gks_svg_plugin(fctid, dx, dy, dimx, i_arr, len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
+                             ptr);
+              break;
 
-	    case 380:
-	      gks_wx_plugin(fctid, dx, dy, dimx, i_arr,
-		len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
-		ptr);
-	      break;
+            case 390:
+              gks_wmf_plugin(fctid, dx, dy, dimx, i_arr, len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
+                             ptr);
+              break;
 
-	    case 381:
-	      gks_qt_plugin(fctid, dx, dy, dimx, i_arr,
-		len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
-		ptr);
-	      break;
+            case 400:
+              gks_quartz_plugin(fctid, dx, dy, dimx, i_arr, len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr,
+                                c_arr, ptr);
+              break;
 
-	    case 382:
-	      gks_svg_plugin(fctid, dx, dy, dimx, i_arr,
-		len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
-		ptr);
-	      break;
+            case 420:
+              gks_gl_plugin(fctid, dx, dy, dimx, i_arr, len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
+                            ptr);
+              break;
 
-	    case 390:
-	      gks_wmf_plugin(fctid, dx, dy, dimx, i_arr,
-		len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
-		ptr);
-	      break;
+            case 140:
+            case 141:
+            case 142:
+            case 143:
+            case 144:
+            case 145:
+            case 146:
+            case 150:
+              gks_cairo_plugin(fctid, dx, dy, dimx, i_arr, len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
+                               ptr);
+              break;
 
-	    case 400:
-	      gks_quartz_plugin(fctid, dx, dy, dimx, i_arr,
-		len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
-		ptr);
-	      break;
+            case 120:
+            case 130:
+            case 160:
+            case 161:
+            case 162:
+              gks_video_plugin(fctid, dx, dy, dimx, i_arr, len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
+                               ptr);
+              break;
 
-	    case 420:
-	      gks_gl_plugin(fctid, dx, dy, dimx, i_arr,
-		len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
-		ptr);
-	      break;
+            case 314:
+              gks_pgf_plugin(fctid, dx, dy, dimx, i_arr, len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
+                             ptr);
+              break;
 
-	    case 120:
-	    case 130:
-	      gks_mov_plugin(fctid, dx, dy, dimx, i_arr,
-		len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
-		ptr);
-	      break;
-
-	    case 140:
-	    case 141:
-	    case 142:
-	    case 150:
-	      gks_cairo_plugin(fctid, dx, dy, dimx, i_arr,
-		len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
-		ptr);
-	      break;
-
-	    case 430:
-	      gks_htm_plugin(fctid, dx, dy, dimx, i_arr,
-		len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
-		ptr);
-	      break;
-
-	    case 314:
-	      gks_pgf_plugin(fctid, dx, dy, dimx, i_arr,
-		len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr,
-		ptr);
-	      break;
-
-	    default:
-	      printf("GKS: %s\n", gks_function_name(fctid));
-	      break;
-	    }
+            default:
+              printf("GKS: %s\n", gks_function_name(fctid));
+              break;
+            }
 #else
-	  gks_drv_js(fctid, dx, dy, dimx, i_arr,
-	    len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr, ptr);
+          gks_drv_js(fctid, dx, dy, dimx, i_arr, len_f_arr_1, f_arr_1, len_f_arr_2, f_arr_2, len_c_arr, c_arr, ptr);
 #endif
-	}
+        }
       list = list->next;
     }
   api = 1;
 }
 
-static
-void gks_parse_env(void)
+static int gks_parse_encoding(const char *encoding)
 {
+  int i, j;
+  const char *utf8_aliases[] = {"utf8", "utf-8"};
+  const char *latin1_aliases[] = {"latin1", "latin-1", "iso-8859-1", "iso8859-1", "iso 8859-1"};
+
+  if (!encoding)
+    {
+      return 0;
+    }
+
+  for (i = 0; i < sizeof(utf8_aliases) / sizeof(char *); i++)
+    {
+      for (j = 0; utf8_aliases[i][j] == tolower(encoding[j]) && encoding[j] != 0; j++)
+        {
+        }
+      if (encoding[j] == 0 && utf8_aliases[i][j] == 0)
+        {
+          return ENCODING_UTF8;
+        }
+    }
+
+  for (i = 0; i < sizeof(latin1_aliases) / sizeof(char *); i++)
+    {
+      for (j = 0; latin1_aliases[i][j] == tolower(encoding[j]) && encoding[j] != 0; j++)
+        {
+        }
+      if (encoding[j] == 0 && latin1_aliases[i][j] == 0)
+        {
+          return ENCODING_LATIN1;
+        }
+    }
+
+  return 0;
+}
+
+
+static void gks_parse_env(void)
+{
+  static int did_report_invalid_encoding = 0;
   const char *env;
 
   env = gks_getenv("GLI_GKS");
   if (env != NULL)
     {
       if (!strcmp(env, "GRALGKS"))
-	s->version = GRALGKS;
+        s->version = GRALGKS;
       else if (!strcmp(env, "GLIGKS"))
-	s->version = GLIGKS;
+        s->version = GLIGKS;
     }
   else
     s->version = GKS5;
+
+  if (s->input_encoding == 0)
+    {
+      env = gks_getenv("GKS_ENCODING");
+      if (env)
+        {
+          s->input_encoding = gks_parse_encoding(gks_getenv("GKS_ENCODING"));
+          if (s->input_encoding == 0 && did_report_invalid_encoding == 0)
+            {
+              gks_perror("Invalid value '%s' for GKS_ENCODING, please use either 'utf8' or 'latin1'.", env);
+              did_report_invalid_encoding = 1;
+            }
+        }
+    }
+  if (s->input_encoding == 0)
+    {
+      s->input_encoding = (char *)gks_getenv("GKS_IGNORE_ENCODING") != NULL ? ENCODING_UTF8 : ENCODING_LATIN1;
+    }
+
+  if (gks_getenv("GKS_NO_EXIT_HANDLER") == NULL) atexit(gks_emergency_close);
 }
 
-void gks_open_gks(int errfil)
+void gks_set_encoding(int encoding)
+{
+  if (state >= GKS_K_GKOP)
+    {
+      switch (encoding)
+        {
+        case ENCODING_LATIN1:
+        case ENCODING_UTF8:
+          s->input_encoding = encoding;
+          break;
+        default:
+          gks_perror("Invalid value '%d' for encoding.", encoding);
+          break;
+        }
+    }
+  else
+    {
+      /* GKS not in proper state. GKS must be in the state GKOP */
+      gks_report_error(SET_ENCODING, 8);
+    }
+}
+
+void gks_inq_encoding(int *encoding)
+{
+  if (state >= GKS_K_GKOP)
+    {
+      *encoding = s->input_encoding;
+    }
+  else
+    {
+      /* GKS not in proper state. GKS must be in the state GKOP */
+      gks_report_error(INQ_ENCODING, 8);
+    }
+}
+
+void gks_init_gks(void)
 {
   int i, tnr;
-  ws_descr_t *ws;
 
-  if (state == GKS_K_GKCL)
+  if (s != NULL)
     {
-      open_ws = NULL;
-      active_ws = NULL;
-      av_ws_types = NULL;
-      for (i = 0; i < num_ws_types; i++)
-	{
-	  ws = (ws_descr_t *) gks_malloc(sizeof(ws_descr_t));
-	  memmove(ws, ws_types + i, sizeof(ws_descr_t));
-	  av_ws_types = gks_list_add(av_ws_types, ws_types[i].wtype, ws);
-	}
-
-      s = (gks_state_list_t *) gks_malloc(sizeof(gks_state_list_t));
-
-      /* parse GKS environment variables */
-      gks_parse_env();
-
-      /* open font database */
-      s->fontfile = gks_open_font();
-
-      gks_init_core(s);
-
       /* initialize aspect source flags */
-      for (i = 0; i < 13; i++)
-	s->asf[i] = GKS_K_ASF_BUNDLED;
+      for (i = 0; i < 13; i++) s->asf[i] = GKS_K_ASF_BUNDLED;
 
       /* set default bundle table indices */
       s->lindex = 1;
@@ -443,7 +466,7 @@ void gks_open_gks(int errfil)
 
       /* initialize normalization transformations */
       for (tnr = 0; tnr < MAX_TNR; tnr++)
-	{
+        {
           s->window[tnr][0] = 0;
           s->window[tnr][1] = 1;
           s->window[tnr][2] = 0;
@@ -452,8 +475,8 @@ void gks_open_gks(int errfil)
           s->viewport[tnr][1] = 1;
           s->viewport[tnr][2] = 0;
           s->viewport[tnr][3] = 1;
-	  gks_set_norm_xform(tnr, s->window[tnr], s->viewport[tnr]);
-	}
+          gks_set_norm_xform(tnr, s->window[tnr], s->viewport[tnr]);
+        }
 
       /* set segment transformation */
       s->mat[0][0] = 1;
@@ -467,26 +490,58 @@ void gks_open_gks(int errfil)
       s->cntnr = 0;
       s->clip = GKS_K_CLIP;
 
-      /* miscellaneous flags */
-      s->wiss = 0;
-
       /* GKS extended attributes */
       s->txslant = 0;
       s->shoff[0] = 0;
       s->shoff[1] = 0;
       s->blur = 0;
       s->alpha = 1;
+      s->bwidth = 1;
+      s->bcoli = 0;
+
+      s->input_encoding = 0;
+    }
+}
+
+void gks_open_gks(int errfil)
+{
+  int i;
+  ws_descr_t *ws;
+
+  if (state == GKS_K_GKCL)
+    {
+      open_ws = NULL;
+      active_ws = NULL;
+      av_ws_types = NULL;
+      for (i = 0; i < num_ws_types; i++)
+        {
+          ws = (ws_descr_t *)gks_malloc(sizeof(ws_descr_t));
+          memmove(ws, ws_types + i, sizeof(ws_descr_t));
+          av_ws_types = gks_list_add(av_ws_types, ws_types[i].wtype, ws);
+        }
+
+      s = (gks_state_list_t *)gks_malloc(sizeof(gks_state_list_t));
+
+      /* parse GKS environment variables */
+      gks_parse_env();
+
+      /* open font database */
+      s->fontfile = gks_open_font();
+
+      /* miscellaneous flags */
+      s->wiss = 0;
+
+      gks_init_core(s);
+
+      /* initialize GKS state */
+      gks_init_gks();
 
       i_arr[0] = errfil;
 
       /* call the device driver link routine */
-      gks_ddlk(OPEN_GKS,
-	1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+      gks_ddlk(OPEN_GKS, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
 
       state = GKS_K_GKOP;
-
-      if (gks_getenv("GKS_NO_EXIT_HANDLER") == NULL)
-        atexit(gks_emergency_close);
 
       /* ensure that floats are printed with dots */
       setlocale(LC_NUMERIC, "C");
@@ -501,14 +556,14 @@ void gks_close_gks(void)
   if (state == GKS_K_GKOP)
     {
       /* call the device driver link routine */
-      gks_ddlk(CLOSE_GKS,
-	0, 0, 0, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+      gks_ddlk(CLOSE_GKS, 0, 0, 0, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
 
       /* close font database */
       gks_close_font(s->fontfile);
 
       gks_list_free(av_ws_types);
-      gks_free((void *) s);
+      gks_free((void *)s);
+      s = NULL;
 
       state = GKS_K_GKCL;
     }
@@ -517,20 +572,19 @@ void gks_close_gks(void)
     gks_report_error(CLOSE_GKS, 2);
 }
 
-static
-int open_file(char *name, int wtype)
+static int open_file(char *name, int wtype)
 {
   int fd;
 
   if (name != NULL)
     {
       if (*name)
-	{
-	  char *mode = wtype == GKS_K_WSTYPE_MI ? "r" : "w";
-	  fd = gks_open_file(name, mode);
-	}
+        {
+          char *mode = wtype == GKS_K_WSTYPE_MI ? "r" : "w";
+          fd = gks_open_file(name, mode);
+        }
       else
-	fd = 1;
+        fd = 1;
     }
   else
     fd = 1;
@@ -548,131 +602,141 @@ void gks_open_ws(int wkid, char *path, int wtype)
   if (state >= GKS_K_GKOP)
     {
       if (wkid > 0)
-	{
-	  if (wtype == 0)
-	    wtype = gks_get_ws_type();
+        {
+          if (wtype == 0) wtype = gks_get_ws_type();
 
-	  if ((element = gks_list_find(av_ws_types, wtype)) != NULL)
-	    {
-	      descr = (ws_descr_t *) element->ptr;
+          if ((element = gks_list_find(av_ws_types, wtype)) != NULL)
+            {
+              descr = (ws_descr_t *)element->ptr;
 
-	      if (gks_list_find(open_ws, wkid) == NULL)
-		{
-		  if (wtype != 5 || s->wiss == 0)
-		    {
-		      ws = (ws_list_t *)
-			gks_malloc(sizeof(ws_list_t));
+              if (gks_list_find(open_ws, wkid) == NULL)
+                {
+                  if (wtype != 5 || s->wiss == 0)
+                    {
+                      ws = (ws_list_t *)gks_malloc(sizeof(ws_list_t));
 
-		      ws->wkid = wkid;
+                      ws->wkid = wkid;
                       if (path == NULL)
                         {
                           if (descr->type != NULL)
                             {
-                              path = (char *) malloc(MAXPATHLEN * sizeof(char));
+                              path = (char *)malloc(MAXPATHLEN * sizeof(char));
                               gks_filepath(path, NULL, descr->type, 1, 0);
-                              ws->path = strdup(path);
+                              ws->path = gks_strdup(path);
                               free(path);
                             }
                           else
                             ws->path = NULL;
                         }
                       else
-                        ws->path = strdup(path);
-		      ws->wtype = wtype;
+                        ws->path = gks_strdup(path);
+                      ws->wtype = wtype;
+                      ws->conid = 0;
 
-		      if (wtype < 320 || wtype > 323)
-			{
-			  if (descr->env)
-			    {
-			      if ((env = gks_getenv(descr->env)))
-				ws->path = strdup(env);
-			    }
-			  if (ws->path)
-			    {
-			      if (*ws->path != '!')
-				ws->conid = open_file(ws->path, wtype);
-			      else
-				ws->conid = atoi(ws->path + 1);
-			    }
-			  else
-			    ws->conid = 1;
-			}
-		      else
-			ws->conid = 1;
+                      if (descr->env)
+                        {
+                          if ((env = gks_getenv(descr->env)))
+                            {
+                              if (ws->path != NULL) free(ws->path);
+                              ws->path = gks_strdup(env);
+                            }
+                        }
+                      if (ws->path)
+                        {
+                          if (*ws->path != '!')
+                            {
+                              if (wtype == 2 || wtype == 3 || wtype == 5 || /* mf and wiss */
+                                  (wtype >= 61 && wtype <= 64) ||           /* ps */
+                                  wtype == 101 || wtype == 102)             /* pdf */
+                                {
+                                  ws->conid = open_file(ws->path, wtype);
+                                }
+                            }
+                          else
+                            {
+                              ws->conid = atoi(ws->path + 1);
+                            }
+                        }
+                      else
+                        {
+                          ws->conid = 1;
+                        }
 
-		      /* add workstation identifier to the set of open
-		         workstations */
-		      open_ws = gks_list_add(open_ws, wkid, ws);
+                      /* add workstation identifier to the set of open
+                         workstations */
+                      open_ws = gks_list_add(open_ws, wkid, ws);
 
-		      if (state == GKS_K_GKOP)
-			state = GKS_K_WSOP;
+                      if (state == GKS_K_GKOP) state = GKS_K_WSOP;
 
-		      /* parse GKS environment variables */
-		      gks_parse_env();
+                      /* parse GKS environment variables */
+                      gks_parse_env();
 
-		      i_arr[0] = wkid;
-		      i_arr[1] = ws->conid;
-		      i_arr[2] = wtype;
+                      i_arr[0] = wkid;
+                      i_arr[1] = ws->conid;
+                      i_arr[2] = wtype;
 
-		      ws->ptr = (void *) s;
+                      ws->ptr = (void *)s;
 
-		      /* call the device driver link routine */
-		      gks_ddlk(OPEN_WS,
-			3, 1, 3, i_arr, 0, f_arr_1, 0, f_arr_2, 1, ws->path,
-			&ws->ptr);
+                      /* call the device driver link routine */
+                      gks_ddlk(OPEN_WS, 3, 1, 3, i_arr, 0, f_arr_1, 0, f_arr_2, 1, ws->path, &ws->ptr);
 
-		      if (i_arr[0] != 0 || i_arr[1] != 0)
-			{
-			  if (wtype == 5)
-			    s->wiss = 1;
+                      if (i_arr[0] != 0 || i_arr[1] != 0)
+                        {
+                          if (wtype == 5) s->wiss = 1;
 
-			  if ((wtype >= 210 && wtype <= 213) || wtype == 218 ||
-                               wtype == 41 || wtype == 381 || wtype == 400 || wtype == 420)
-			    {
-			      ws_descr_t *p = (ws_descr_t *) element->ptr;
+#ifndef __EMSCRIPTEN__
+                          if ((wtype >= 210 && wtype <= 213) || wtype == 218 || wtype == 41 || wtype == 381 ||
+                              wtype == 400 || wtype == 420)
+                            {
+                              ws_descr_t *p = (ws_descr_t *)element->ptr;
 
-			      p->sizex  = f_arr_1[0];
-			      p->sizey  = f_arr_2[0];
-			      p->unitsx = i_arr[0];
-			      p->unitsy = i_arr[1];
-			    }
-			}
-		      else
-			{
-			  if (ws->conid != 1)
-			    if (ws->path)
-			      if (*ws->path != '!')
-				gks_close_file(ws->conid);
+                              p->sizex = f_arr_1[0];
+                              p->sizey = f_arr_2[0];
+                              p->unitsx = i_arr[0];
+                              p->unitsy = i_arr[1];
+                            }
+#else
+                          ws_descr_t *p = (ws_descr_t *)element->ptr;
 
-			  if (ws->path)
-			    free(ws->path);
+                          p->sizex = f_arr_1[0];
+                          p->sizey = f_arr_2[0];
+                          p->unitsx = i_arr[0];
+                          p->unitsy = i_arr[1];
+#endif
+                        }
+                      else
+                        {
+                          if (ws->conid && ws->conid != 1)
+                            if (ws->path)
+                              if (*ws->path != '!') gks_close_file(ws->conid);
 
-			  /* remove workstation identifier from the set of open
-			     workstations */
-			  open_ws = gks_list_del(open_ws, wkid);
+                          if (ws->path) free(ws->path);
 
-			  if (open_ws == NULL)
-			    state = GKS_K_GKOP;
+                          /* remove workstation identifier from the set of open
+                             workstations */
+                          open_ws = gks_list_del(open_ws, wkid);
 
-			  /* Open failed */
-			  gks_report_error(OPEN_WS, 901);
-			}
-		    }
-		  else
-		    /* WISS is already open */
-		    gks_report_error(OPEN_WS, 28);
-		}
-	      else
-		/* specified workstation is open */
-		gks_report_error(OPEN_WS, 24);
-	    }
-	  else
-	    /* specified workstation type is invalid */
-	    gks_report_error(OPEN_WS, 22);
-	}
+                          if (open_ws == NULL) state = GKS_K_GKOP;
+
+                          /* Open failed */
+                          gks_report_error(OPEN_WS, 901);
+                        }
+                    }
+                  else
+                    /* WISS is already open */
+                    gks_report_error(OPEN_WS, 28);
+                }
+              else
+                /* specified workstation is open */
+                gks_report_error(OPEN_WS, 24);
+            }
+          else
+            /* specified workstation type is invalid */
+            gks_report_error(OPEN_WS, 22);
+        }
       else
-	/* specified workstation identifier is invalid */
-	gks_report_error(OPEN_WS, 20);
+        /* specified workstation identifier is invalid */
+        gks_report_error(OPEN_WS, 20);
     }
   else
     /* GKS not in proper state. GKS must be in one of the
@@ -688,48 +752,43 @@ void gks_close_ws(int wkid)
   if (state >= GKS_K_WSOP)
     {
       if (wkid > 0)
-	{
-	  if ((element = gks_list_find(open_ws, wkid)) != NULL)
-	    {
-	      ws = (ws_list_t *) element->ptr;
+        {
+          if ((element = gks_list_find(open_ws, wkid)) != NULL)
+            {
+              ws = (ws_list_t *)element->ptr;
 
-	      if (gks_list_find(active_ws, wkid) == NULL)
-		{
-		  i_arr[0] = wkid;
+              if (gks_list_find(active_ws, wkid) == NULL)
+                {
+                  i_arr[0] = wkid;
 
-		  /* call the device driver link routine */
-		  gks_ddlk(CLOSE_WS,
-		    1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+                  /* call the device driver link routine */
+                  gks_ddlk(CLOSE_WS, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
 
-		  if (ws->wtype == 5)
-	 	    s->wiss = 0;
+                  if (ws->wtype == 5) s->wiss = 0;
 
-		  if (ws->conid != 1)
-		    if (ws->path)
-		      if (*ws->path != '!')
-			gks_close_file(ws->conid);
+                  if (ws->conid && ws->conid != 1)
+                    if (ws->path)
+                      if (*ws->path != '!') gks_close_file(ws->conid);
 
-		  if (ws->path)
-		    free(ws->path);
+                  if (ws->path) free(ws->path);
 
-		  /* remove workstation identifier from the set of open
-		     workstations */
-		  open_ws = gks_list_del(open_ws, wkid);
+                  /* remove workstation identifier from the set of open
+                     workstations */
+                  open_ws = gks_list_del(open_ws, wkid);
 
-		  if (open_ws == NULL)
-		    state = GKS_K_GKOP;
-		}
-	      else
-		/* specified workstation is active */
-		gks_report_error(CLOSE_WS, 29);
-	    }
-	  else
-	    /* specified workstation is not open */
-	    gks_report_error(CLOSE_WS, 25);
-	}
+                  if (open_ws == NULL) state = GKS_K_GKOP;
+                }
+              else
+                /* specified workstation is active */
+                gks_report_error(CLOSE_WS, 29);
+            }
+          else
+            /* specified workstation is not open */
+            gks_report_error(CLOSE_WS, 25);
+        }
       else
-	/* specified workstation identifier is invalid */
-	gks_report_error(CLOSE_WS, 20);
+        /* specified workstation identifier is invalid */
+        gks_report_error(CLOSE_WS, 20);
     }
   else
     /* GKS not in proper state. GKS must be in one of the
@@ -742,35 +801,33 @@ void gks_activate_ws(int wkid)
   if (state == GKS_K_WSOP || state == GKS_K_WSAC)
     {
       if (wkid > 0)
-	{
-	  if (gks_list_find(open_ws, wkid) != NULL)
-	    {
-	      if (gks_list_find(active_ws, wkid) == NULL)
-		{
-		  /* add workstation identifier to the set of active
-		     workstations */
-		  active_ws = gks_list_add(active_ws, wkid, NULL);
+        {
+          if (gks_list_find(open_ws, wkid) != NULL)
+            {
+              if (gks_list_find(active_ws, wkid) == NULL)
+                {
+                  /* add workstation identifier to the set of active
+                     workstations */
+                  active_ws = gks_list_add(active_ws, wkid, NULL);
 
-		  i_arr[0] = wkid;
+                  i_arr[0] = wkid;
 
-		  /* call the device driver link routine */
-		  gks_ddlk(ACTIVATE_WS,
-		    1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+                  /* call the device driver link routine */
+                  gks_ddlk(ACTIVATE_WS, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
 
-		  if (state == GKS_K_WSOP)
-		    state = GKS_K_WSAC;
-		}
-	      else
-		/* specified workstation is active */
-		gks_report_error(ACTIVATE_WS, 29);
-	    }
-	  else
-	    /* specified workstation is not open */
-	    gks_report_error(ACTIVATE_WS, 25);
-	}
+                  if (state == GKS_K_WSOP) state = GKS_K_WSAC;
+                }
+              else
+                /* specified workstation is active */
+                gks_report_error(ACTIVATE_WS, 29);
+            }
+          else
+            /* specified workstation is not open */
+            gks_report_error(ACTIVATE_WS, 25);
+        }
       else
-	/* specified workstation identifier is invalid */
-	gks_report_error(ACTIVATE_WS, 20);
+        /* specified workstation identifier is invalid */
+        gks_report_error(ACTIVATE_WS, 20);
     }
   else
     /* GKS not in proper state. GKS must be either in the state
@@ -783,33 +840,76 @@ void gks_deactivate_ws(int wkid)
   if (state == GKS_K_WSAC)
     {
       if (wkid > 0)
-	{
-	  if (gks_list_find(active_ws, wkid) != NULL)
-	    {
-	      i_arr[0] = wkid;
+        {
+          if (gks_list_find(active_ws, wkid) != NULL)
+            {
+              i_arr[0] = wkid;
 
-	      /* call the device driver link routine */
-	      gks_ddlk(DEACTIVATE_WS,
-		1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+              /* call the device driver link routine */
+              gks_ddlk(DEACTIVATE_WS, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
 
-	      /* remove workstation identifier from the set of active
-		 workstations */
-	      active_ws = gks_list_del(active_ws, wkid);
+              /* remove workstation identifier from the set of active
+                 workstations */
+              active_ws = gks_list_del(active_ws, wkid);
 
-	      if (active_ws == NULL)
-		state = GKS_K_WSOP;
-	    }
-	  else
-	    /* specified workstation is not active */
-	    gks_report_error(DEACTIVATE_WS, 30);
-	}
+              if (active_ws == NULL) state = GKS_K_WSOP;
+            }
+          else
+            /* specified workstation is not active */
+            gks_report_error(DEACTIVATE_WS, 30);
+        }
       else
-	/* specified workstation identifier is invalid */
-	gks_report_error(DEACTIVATE_WS, 20);
+        /* specified workstation identifier is invalid */
+        gks_report_error(DEACTIVATE_WS, 20);
     }
   else
     /* GKS not in proper state. GKS must be in the state WSAC */
     gks_report_error(DEACTIVATE_WS, 3);
+}
+
+void gks_configure_ws(int wkid)
+{
+  gks_list_t *element;
+  ws_list_t *ws;
+
+
+  if (state == GKS_K_WSOP || state == GKS_K_WSAC)
+    {
+      if (wkid > 0)
+        {
+          if ((element = gks_list_find(open_ws, wkid)) != NULL)
+            {
+              i_arr[0] = wkid;
+
+              /* call the device driver link routine */
+              gks_ddlk(CONFIGURE_WS, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+
+              ws = (ws_list_t *)element->ptr;
+              if ((element = gks_list_find(av_ws_types, ws->wtype)) != NULL)
+                {
+                  ws_descr_t *p = (ws_descr_t *)element->ptr;
+
+                  p->sizex = f_arr_1[0];
+                  p->sizey = f_arr_2[0];
+                  p->unitsx = i_arr[0];
+                  p->unitsy = i_arr[1];
+                }
+              else
+                /* specified workstation type is invalid */
+                gks_report_error(CONFIGURE_WS, 22);
+            }
+          else
+            /* specified workstation is not open */
+            gks_report_error(CONFIGURE_WS, 25);
+        }
+      else
+        /* specified workstation identifier is invalid */
+        gks_report_error(CONFIGURE_WS, 20);
+    }
+  else
+    /* GKS not in proper state. GKS must be either in the state
+       WSOP or in the state WSAC */
+    gks_report_error(CONFIGURE_WS, 6);
 }
 
 void gks_clear_ws(int wkid, int cofl)
@@ -817,23 +917,22 @@ void gks_clear_ws(int wkid, int cofl)
   if (state == GKS_K_WSOP || state == GKS_K_WSAC)
     {
       if (wkid > 0)
-	{
-	  if (gks_list_find(open_ws, wkid) != NULL)
-	    {
-	      i_arr[0] = wkid;
-	      i_arr[1] = cofl;
+        {
+          if (gks_list_find(open_ws, wkid) != NULL)
+            {
+              i_arr[0] = wkid;
+              i_arr[1] = cofl;
 
-	      /* call the device driver link routine */
-	      gks_ddlk(CLEAR_WS,
-		2, 1, 2, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-	    }
-	  else
-	    /* specified workstation is not open */
-	    gks_report_error(CLEAR_WS, 25);
-	}
+              /* call the device driver link routine */
+              gks_ddlk(CLEAR_WS, 2, 1, 2, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+            }
+          else
+            /* specified workstation is not open */
+            gks_report_error(CLEAR_WS, 25);
+        }
       else
-	/* specified workstation identifier is invalid */
-	gks_report_error(CLEAR_WS, 20);
+        /* specified workstation identifier is invalid */
+        gks_report_error(CLEAR_WS, 20);
     }
   else
     /* GKS not in proper state. GKS must be either in the state
@@ -848,36 +947,36 @@ void gks_redraw_seg_on_ws(int wkid)
   if (state >= GKS_K_WSOP)
     {
       if (wkid > 0)
-	{
-	  if (s->wiss)
-	    {
-	      if (gks_list_find(active_ws, wkid) != NULL)
-		{
-		  /* save GKS state, restore segment state */
-		  memmove(&sl, s, sizeof(gks_state_list_t));
-		  memmove(s, seg_state, sizeof(gks_state_list_t));
+        {
+          if (s->wiss)
+            {
+              if (gks_list_find(active_ws, wkid) != NULL)
+                {
+                  /* save GKS state, restore segment state */
+                  memmove(&sl, s, sizeof(gks_state_list_t));
+                  memmove(s, seg_state, sizeof(gks_state_list_t));
 
-		  id = wkid;
+                  id = wkid;
 
-		  /* call the WISS dispatch routine */
-		  gks_wiss_dispatch(REDRAW_SEG_ON_WS, wkid, 0);
+                  /* call the WISS dispatch routine */
+                  gks_wiss_dispatch(REDRAW_SEG_ON_WS, wkid, 0);
 
-		  id = 0;
+                  id = 0;
 
-		  /* restore GKS state */
-		  memmove(s, &sl, sizeof(gks_state_list_t));
-		}
-	      else
-		/* specified workstation is not active */
-		gks_report_error(REDRAW_SEG_ON_WS, 30);
-	    }
-	  else
-	    /* WISS is not open */
-	    gks_report_error(REDRAW_SEG_ON_WS, 27);
-	}
+                  /* restore GKS state */
+                  memmove(s, &sl, sizeof(gks_state_list_t));
+                }
+              else
+                /* specified workstation is not active */
+                gks_report_error(REDRAW_SEG_ON_WS, 30);
+            }
+          else
+            /* WISS is not open */
+            gks_report_error(REDRAW_SEG_ON_WS, 27);
+        }
       else
-	/* specified workstation identifier is invalid */
-	gks_report_error(REDRAW_SEG_ON_WS, 20);
+        /* specified workstation identifier is invalid */
+        gks_report_error(REDRAW_SEG_ON_WS, 20);
     }
   else
     /* GKS not in proper state. GKS must be in one of the
@@ -890,23 +989,22 @@ void gks_update_ws(int wkid, int regfl)
   if (state >= GKS_K_WSOP)
     {
       if (wkid > 0)
-	{
-	  if (gks_list_find(open_ws, wkid) != NULL)
-	    {
-	      i_arr[0] = wkid;
-	      i_arr[1] = regfl;
+        {
+          if (gks_list_find(open_ws, wkid) != NULL)
+            {
+              i_arr[0] = wkid;
+              i_arr[1] = regfl;
 
-	      /* call the device driver link routine */
-	      gks_ddlk(UPDATE_WS,
-		2, 1, 2, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-	    }
-	  else
-	    /* specified workstation is not open */
-	    gks_report_error(UPDATE_WS, 25);
-	}
+              /* call the device driver link routine */
+              gks_ddlk(UPDATE_WS, 2, 1, 2, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+            }
+          else
+            /* specified workstation is not open */
+            gks_report_error(UPDATE_WS, 25);
+        }
       else
-	/* specified workstation identifier is invalid */
-	gks_report_error(UPDATE_WS, 20);
+        /* specified workstation identifier is invalid */
+        gks_report_error(UPDATE_WS, 20);
     }
   else
     /* GKS not in proper state. GKS must be in one of the
@@ -919,24 +1017,23 @@ void gks_set_deferral_state(int wkid, int defmo, int regmo)
   if (state >= GKS_K_WSOP)
     {
       if (wkid > 0)
-	{
-	  if (gks_list_find(open_ws, wkid) != NULL)
-	    {
-	      i_arr[0] = wkid;
-	      i_arr[1] = defmo;
-	      i_arr[2] = regmo;
+        {
+          if (gks_list_find(open_ws, wkid) != NULL)
+            {
+              i_arr[0] = wkid;
+              i_arr[1] = defmo;
+              i_arr[2] = regmo;
 
-	      /* call the device driver link routine */
-	      gks_ddlk(SET_DEFERRAL_STATE,
-		3, 1, 3, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-	    }
-	  else
-	    /* specified workstation is not open */
-	    gks_report_error(SET_DEFERRAL_STATE, 25);
-	}
+              /* call the device driver link routine */
+              gks_ddlk(SET_DEFERRAL_STATE, 3, 1, 3, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+            }
+          else
+            /* specified workstation is not open */
+            gks_report_error(SET_DEFERRAL_STATE, 25);
+        }
       else
-	/* specified workstation identifier is invalid */
-	gks_report_error(SET_DEFERRAL_STATE, 20);
+        /* specified workstation identifier is invalid */
+        gks_report_error(SET_DEFERRAL_STATE, 20);
     }
   else
     /* GKS not in proper state. GKS must be in one of the
@@ -944,8 +1041,7 @@ void gks_set_deferral_state(int wkid, int defmo, int regmo)
     gks_report_error(SET_DEFERRAL_STATE, 7);
 }
 
-void gks_escape(
-  int funid, int dimidr, int *idr, int maxodr, int *lenodr, int *odr)
+void gks_escape(int funid, int dimidr, int *idr, int maxodr, int *lenodr, int *odr)
 {
   gks_perror("escape function %d not implemented", funid);
 }
@@ -955,22 +1051,21 @@ void gks_message(int wkid, char *message)
   if (state >= GKS_K_WSOP)
     {
       if (wkid > 0)
-	{
-	  if (gks_list_find(open_ws, wkid) != NULL)
-	    {
-	      i_arr[0] = wkid;
+        {
+          if (gks_list_find(open_ws, wkid) != NULL)
+            {
+              i_arr[0] = wkid;
 
-	      /* call the device driver link routine */
-	      gks_ddlk(MESSAGE,
-		1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 1, message, NULL);
-	    }
-	  else
-	    /* specified workstation is not open */
-	    gks_report_error(MESSAGE, 25);
-	}
+              /* call the device driver link routine */
+              gks_ddlk(MESSAGE, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 1, message, NULL);
+            }
+          else
+            /* specified workstation is not open */
+            gks_report_error(MESSAGE, 25);
+        }
       else
-	/* specified workstation identifier is invalid */
-	gks_report_error(MESSAGE, 20);
+        /* specified workstation identifier is invalid */
+        gks_report_error(MESSAGE, 20);
     }
   else
     /* GKS not in proper state. GKS must be in one of the
@@ -983,15 +1078,15 @@ void gks_polyline(int n, double *pxa, double *pya)
   if (state >= GKS_K_WSAC)
     {
       if (n >= 2)
-	{
-	  i_arr[0] = n;
+        {
+          i_arr[0] = n;
 
-	  /* call the device driver link routine */
-	  gks_ddlk(POLYLINE, 1, 1, 1, i_arr, n, pxa, n, pya, 0, c_arr, NULL);
-	}
+          /* call the device driver link routine */
+          gks_ddlk(POLYLINE, 1, 1, 1, i_arr, n, pxa, n, pya, 0, c_arr, NULL);
+        }
       else
-	/* number of points is invalid */
-	gks_report_error(POLYLINE, 100);
+        /* number of points is invalid */
+        gks_report_error(POLYLINE, 100);
     }
   else
     /* GKS not in proper state. GKS must be either in the state
@@ -1004,15 +1099,15 @@ void gks_polymarker(int n, double *pxa, double *pya)
   if (state >= GKS_K_WSAC)
     {
       if (n >= 1)
-	{
-	  i_arr[0] = n;
+        {
+          i_arr[0] = n;
 
-	  /* call the device driver link routine */
-	  gks_ddlk(POLYMARKER, 1, 1, 1, i_arr, n, pxa, n, pya, 0, c_arr, NULL);
-	}
+          /* call the device driver link routine */
+          gks_ddlk(POLYMARKER, 1, 1, 1, i_arr, n, pxa, n, pya, 0, c_arr, NULL);
+        }
       else
-	/* number of points is invalid */
-	gks_report_error(POLYMARKER, 100);
+        /* number of points is invalid */
+        gks_report_error(POLYMARKER, 100);
     }
   else
     /* GKS not in proper state. GKS must be either in the state
@@ -1024,13 +1119,22 @@ void gks_text(double px, double py, char *str)
 {
   if (state >= GKS_K_WSAC)
     {
-      if (strlen(str) < 132)
+      if (strlen(str) == 0)
         {
+          /* ignore empty strings */
+          return;
+        }
+      else if (strlen(str) < 132)
+        {
+          /* double the string length as the longest utf8 representation of any latin1 character is two bytes long */
+          char utf8_str[2 * 131 + 1];
+          gks_input2utf8(str, utf8_str, s->input_encoding);
+
           f_arr_1[0] = px;
           f_arr_2[0] = py;
 
           /* call the device driver link routine */
-          gks_ddlk(TEXT, 0, 0, 0, i_arr, 1, f_arr_1, 1, f_arr_2, 1, str, NULL);
+          gks_ddlk(TEXT, 0, 0, 0, i_arr, 1, f_arr_1, 1, f_arr_2, 1, utf8_str, NULL);
         }
       else
         /* string is too long */
@@ -1047,15 +1151,15 @@ void gks_fillarea(int n, double *pxa, double *pya)
   if (state >= GKS_K_WSAC)
     {
       if (n >= 3)
-	{
-	  i_arr[0] = n;
+        {
+          i_arr[0] = n;
 
-	  /* call the device driver link routine */
-	  gks_ddlk(FILLAREA, 1, 1, 1, i_arr, n, pxa, n, pya, 0, c_arr, NULL);
-	}
+          /* call the device driver link routine */
+          gks_ddlk(FILLAREA, 1, 1, 1, i_arr, n, pxa, n, pya, 0, c_arr, NULL);
+        }
       else
-	/* number of points is invalid */
-	gks_report_error(FILLAREA, 100);
+        /* number of points is invalid */
+        gks_report_error(FILLAREA, 100);
     }
   else
     /* GKS not in proper state. GKS must be either in the state
@@ -1063,8 +1167,7 @@ void gks_fillarea(int n, double *pxa, double *pya)
     gks_report_error(FILLAREA, 5);
 }
 
-static
-int check_range(double a, double b)
+static int check_range(double a, double b)
 {
   double d;
 
@@ -1078,45 +1181,41 @@ int check_range(double a, double b)
   return fabs((b - a) / d) * 0.000001 > DBL_EPSILON;
 }
 
-void gks_cellarray(
-  double qx, double qy, double rx, double ry,
-  int dimx, int dimy, int scol, int srow, int ncol, int nrow, int *colia)
+void gks_cellarray(double qx, double qy, double rx, double ry, int dimx, int dimy, int scol, int srow, int ncol,
+                   int nrow, int *colia)
 {
   if (state >= GKS_K_WSAC)
     {
-      if (scol >= 1 && srow >= 1 &&
-          scol + ncol - 1 <= dimx && srow + nrow - 1 <= dimy)
-	{
+      if (scol >= 1 && srow >= 1 && scol + ncol - 1 <= dimx && srow + nrow - 1 <= dimy)
+        {
           /* Check whether the given coordinate range does not lead
              to loss of precision */
           if (check_range(qx, rx) && check_range(qy, ry))
             {
-	      gks_adjust_cellarray(&qx, &qy, &rx, &ry,
-				   &scol, &srow, &ncol, &nrow, dimx, dimy);
+              gks_adjust_cellarray(&qx, &qy, &rx, &ry, &scol, &srow, &ncol, &nrow, dimx, dimy);
 
-	      if (ncol >= 1 && nrow >= 1)
-		{
-		  f_arr_1[0] = qx;
-		  f_arr_2[0] = qy;
-		  f_arr_1[1] = rx;
-		  f_arr_2[1] = ry;
+              if (ncol >= 1 && nrow >= 1)
+                {
+                  f_arr_1[0] = qx;
+                  f_arr_2[0] = qy;
+                  f_arr_1[1] = rx;
+                  f_arr_2[1] = ry;
 
-		  /* call the device driver link routine */
-		  gks_ddlk(CELLARRAY,
-		    ncol, nrow, dimx, colia + (srow - 1) * dimx + scol - 1,
-		    2, f_arr_1, 2, f_arr_2, 0, c_arr, NULL);
-		}
-	      else
-		/* subimage limitation reached */
-		gks_report_error(CELLARRAY, 404);
+                  /* call the device driver link routine */
+                  gks_ddlk(CELLARRAY, ncol, nrow, dimx, colia + (srow - 1) * dimx + scol - 1, 2, f_arr_1, 2, f_arr_2, 0,
+                           c_arr, NULL);
+                }
+              else
+                /* subimage limitation reached */
+                gks_report_error(CELLARRAY, 404);
             }
           else
             /* rectangle definition is invalid */
             gks_report_error(CELLARRAY, 51);
-	}
+        }
       else
-	/* dimensions of color index array are invalid */
-	gks_report_error(CELLARRAY, 91);
+        /* dimensions of color index array are invalid */
+        gks_report_error(CELLARRAY, 91);
     }
   else
     /* GKS not in proper state. GKS must be either in the state
@@ -1133,7 +1232,7 @@ void gks_gdp(int n, double *px, double *py, int primid, int ldr, int *datrec)
       if (n >= 1)
         {
           len = ldr + 3;
-          dr = (int *) gks_malloc(len * sizeof(int));
+          dr = (int *)gks_malloc(len * sizeof(int));
           dr[0] = n;
           dr[1] = primid;
           dr[2] = ldr;
@@ -1159,16 +1258,15 @@ void gks_set_pline_index(int index)
   if (state >= GKS_K_GKOP)
     {
       if (index >= 1 && index <= 5)
-	{
-	  s->lindex = i_arr[0] = index;
+        {
+          s->lindex = i_arr[0] = index;
 
-	  /* call the device driver link routine */
-	  gks_ddlk(SET_PLINE_INDEX,
-	    1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-	}
+          /* call the device driver link routine */
+          gks_ddlk(SET_PLINE_INDEX, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+        }
       else
-	/* polyline index is invalid */
-	gks_report_error(SET_PLINE_INDEX, 60);
+        /* polyline index is invalid */
+        gks_report_error(SET_PLINE_INDEX, 60);
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1181,16 +1279,15 @@ void gks_set_pline_linetype(int ltype)
   if (state >= GKS_K_GKOP)
     {
       if (ltype >= -30 && ltype <= GKS_K_LINETYPE_DASHED_DOTTED && ltype)
-	{
-	  s->ltype = i_arr[0] = ltype;
+        {
+          s->ltype = i_arr[0] = ltype;
 
-	  /* call the device driver link routine */
-	  gks_ddlk(SET_PLINE_LINETYPE,
-	    1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-	}
+          /* call the device driver link routine */
+          gks_ddlk(SET_PLINE_LINETYPE, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+        }
       else
-	/* linetype is invalid */
-	gks_report_error(SET_PLINE_LINETYPE, 62);
+        /* linetype is invalid */
+        gks_report_error(SET_PLINE_LINETYPE, 62);
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1203,13 +1300,12 @@ void gks_set_pline_linewidth(double lwidth)
   if (state >= GKS_K_GKOP)
     {
       if (lwidth != s->lwidth)
-	{
-	  s->lwidth = f_arr_1[0] = lwidth;
+        {
+          s->lwidth = f_arr_1[0] = lwidth;
 
-	  /* call the device driver link routine */
-	  gks_ddlk(SET_PLINE_LINEWIDTH,
-	    0, 0, 0, i_arr, 1, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-	}
+          /* call the device driver link routine */
+          gks_ddlk(SET_PLINE_LINEWIDTH, 0, 0, 0, i_arr, 1, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+        }
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1222,19 +1318,18 @@ void gks_set_pline_color_index(int coli)
   if (state >= GKS_K_GKOP)
     {
       if (coli >= 0)
-	{
-	  if (coli != s->plcoli)
-	    {
-	      s->plcoli = i_arr[0] = coli;
+        {
+          if (coli != s->plcoli)
+            {
+              s->plcoli = i_arr[0] = coli;
 
-	      /* call the device driver link routine */
-	      gks_ddlk(SET_PLINE_COLOR_INDEX,
-		1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-	    }
-	}
+              /* call the device driver link routine */
+              gks_ddlk(SET_PLINE_COLOR_INDEX, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+            }
+        }
       else
-	/* color index is invalid */
-	gks_report_error(SET_PLINE_COLOR_INDEX, 65);
+        /* color index is invalid */
+        gks_report_error(SET_PLINE_COLOR_INDEX, 65);
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1247,16 +1342,15 @@ void gks_set_pmark_index(int index)
   if (state >= GKS_K_GKOP)
     {
       if (index >= 1 && index <= 5)
-	{
-	  s->mindex = i_arr[0] = index;
+        {
+          s->mindex = i_arr[0] = index;
 
-	  /* call the device driver link routine */
-	  gks_ddlk(SET_PMARK_INDEX,
-	    1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-	}
+          /* call the device driver link routine */
+          gks_ddlk(SET_PMARK_INDEX, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+        }
       else
-	/* polymarker index is invalid */
-	gks_report_error(SET_PMARK_INDEX, 64);
+        /* polymarker index is invalid */
+        gks_report_error(SET_PMARK_INDEX, 64);
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1268,23 +1362,21 @@ void gks_set_pmark_type(int mtype)
 {
   if (state >= GKS_K_GKOP)
     {
-      if (mtype >= -114 && mtype <= -101)
-	mtype = gksgral_marker_types[mtype + 114];
+      if (mtype >= -114 && mtype <= -101) mtype = gksgral_marker_types[mtype + 114];
 
       if (mtype >= -32 && mtype <= GKS_K_MARKERTYPE_DIAGONAL_CROSS && mtype)
-	{
-	  if (mtype != s->mtype)
-	    {
-	      s->mtype = i_arr[0] = mtype;
+        {
+          if (mtype != s->mtype)
+            {
+              s->mtype = i_arr[0] = mtype;
 
-	      /* call the device driver link routine */
-	      gks_ddlk(SET_PMARK_TYPE,
-		1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-	    }
-	}
+              /* call the device driver link routine */
+              gks_ddlk(SET_PMARK_TYPE, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+            }
+        }
       else
-	/* marker type is invalid */
-	gks_report_error(SET_PMARK_TYPE, 66);
+        /* marker type is invalid */
+        gks_report_error(SET_PMARK_TYPE, 66);
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1297,13 +1389,12 @@ void gks_set_pmark_size(double mszsc)
   if (state >= GKS_K_GKOP)
     {
       if (mszsc != s->mszsc)
-	{
-	  s->mszsc = f_arr_1[0] = mszsc;
+        {
+          s->mszsc = f_arr_1[0] = mszsc;
 
-	  /* call the device driver link routine */
-	  gks_ddlk(SET_PMARK_SIZE,
-	    0, 0, 0, i_arr, 1, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-	}
+          /* call the device driver link routine */
+          gks_ddlk(SET_PMARK_SIZE, 0, 0, 0, i_arr, 1, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+        }
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1316,19 +1407,18 @@ void gks_set_pmark_color_index(int coli)
   if (state >= GKS_K_GKOP)
     {
       if (coli >= 0)
-	{
-	  if (coli != s->pmcoli)
-	    {
-	      s->pmcoli = i_arr[0] = coli;
+        {
+          if (coli != s->pmcoli)
+            {
+              s->pmcoli = i_arr[0] = coli;
 
-	      /* call the device driver link routine */
-	      gks_ddlk(SET_PMARK_COLOR_INDEX,
-		1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-	    }
-	}
+              /* call the device driver link routine */
+              gks_ddlk(SET_PMARK_COLOR_INDEX, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+            }
+        }
       else
-	/* color index is invalid */
-	gks_report_error(SET_PMARK_COLOR_INDEX, 65);
+        /* color index is invalid */
+        gks_report_error(SET_PMARK_COLOR_INDEX, 65);
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1341,16 +1431,15 @@ void gks_set_text_index(int index)
   if (state >= GKS_K_GKOP)
     {
       if (index >= 1 && index <= 6)
-	{
-	  s->tindex = i_arr[0] = index;
+        {
+          s->tindex = i_arr[0] = index;
 
-	  /* call the device driver link routine */
-	  gks_ddlk(SET_TEXT_INDEX,
-	    1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-	}
+          /* call the device driver link routine */
+          gks_ddlk(SET_TEXT_INDEX, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+        }
       else
-	/* text index is invalid */
-	gks_report_error(SET_TEXT_INDEX, 68);
+        /* text index is invalid */
+        gks_report_error(SET_TEXT_INDEX, 68);
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1363,20 +1452,19 @@ void gks_set_text_fontprec(int font, int prec)
   if (state >= GKS_K_GKOP)
     {
       if (font != 0)
-	{
-	  if (font != s->txfont || prec != s->txprec)
-	    {
-	      s->txfont = i_arr[0] = font;
-	      s->txprec = i_arr[1] = prec;
+        {
+          if (font != s->txfont || prec != s->txprec)
+            {
+              s->txfont = i_arr[0] = font;
+              s->txprec = i_arr[1] = prec;
 
-	      /* call the device driver link routine */
-	      gks_ddlk(SET_TEXT_FONTPREC,
-		2, 1, 2, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-	    }
-	}
+              /* call the device driver link routine */
+              gks_ddlk(SET_TEXT_FONTPREC, 2, 1, 2, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+            }
+        }
       else
-	/* text font is invalid */
-	gks_report_error(SET_TEXT_FONTPREC, 70);
+        /* text font is invalid */
+        gks_report_error(SET_TEXT_FONTPREC, 70);
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1389,19 +1477,18 @@ void gks_set_text_expfac(double chxp)
   if (state >= GKS_K_GKOP)
     {
       if (chxp != 0)
-	{
-	  if (chxp != s->chxp)
-	    {
-	      s->chxp = f_arr_1[0] = chxp;
+        {
+          if (chxp != s->chxp)
+            {
+              s->chxp = f_arr_1[0] = chxp;
 
-	      /* call the device driver link routine */
-	      gks_ddlk(SET_TEXT_EXPFAC,
-		0, 0, 0, i_arr, 1, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-	    }
-	}
+              /* call the device driver link routine */
+              gks_ddlk(SET_TEXT_EXPFAC, 0, 0, 0, i_arr, 1, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+            }
+        }
       else
-	/* character expansion factor is invalid */
-	gks_report_error(SET_TEXT_EXPFAC, 72);
+        /* character expansion factor is invalid */
+        gks_report_error(SET_TEXT_EXPFAC, 72);
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1414,13 +1501,12 @@ void gks_set_text_spacing(double chsp)
   if (state >= GKS_K_GKOP)
     {
       if (chsp != s->chsp)
-	{
-	  s->chsp = f_arr_1[0] = chsp;
+        {
+          s->chsp = f_arr_1[0] = chsp;
 
-	  /* call the device driver link routine */
-	  gks_ddlk(SET_TEXT_SPACING,
-	    0, 0, 0, i_arr, 1, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-	}
+          /* call the device driver link routine */
+          gks_ddlk(SET_TEXT_SPACING, 0, 0, 0, i_arr, 1, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+        }
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1433,19 +1519,18 @@ void gks_set_text_color_index(int coli)
   if (state >= GKS_K_GKOP)
     {
       if (coli >= 0)
-	{
-	  if (coli != s->txcoli)
-	    {
-	      s->txcoli = i_arr[0] = coli;
+        {
+          if (coli != s->txcoli)
+            {
+              s->txcoli = i_arr[0] = coli;
 
-	      /* call the device driver link routine */
-	      gks_ddlk(SET_TEXT_COLOR_INDEX,
-		1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-	    }
-	}
+              /* call the device driver link routine */
+              gks_ddlk(SET_TEXT_COLOR_INDEX, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+            }
+        }
       else
-	/* color index is invalid */
-	gks_report_error(SET_TEXT_COLOR_INDEX, 65);
+        /* color index is invalid */
+        gks_report_error(SET_TEXT_COLOR_INDEX, 65);
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1458,19 +1543,18 @@ void gks_set_text_height(double chh)
   if (state >= GKS_K_GKOP)
     {
       if (chh > 0)
-	{
-	  if (chh != s->chh)
-	    {
-	      s->chh = f_arr_1[0] = chh;
+        {
+          if (chh != s->chh)
+            {
+              s->chh = f_arr_1[0] = chh;
 
-	      /* call the device driver link routine */
-	      gks_ddlk(SET_TEXT_HEIGHT,
-		0, 0, 0, i_arr, 1, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-	    }
-	}
+              /* call the device driver link routine */
+              gks_ddlk(SET_TEXT_HEIGHT, 0, 0, 0, i_arr, 1, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+            }
+        }
       else
-	/* character height is invalid */
-	gks_report_error(SET_TEXT_HEIGHT, 73);
+        /* character height is invalid */
+        gks_report_error(SET_TEXT_HEIGHT, 73);
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1483,20 +1567,19 @@ void gks_set_text_upvec(double chux, double chuy)
   if (state >= GKS_K_GKOP)
     {
       if (fabs(chux) > FEPS || fabs(chuy) > FEPS)
-	{
-	  if (chux != s->chup[0] || chuy != s->chup[1])
-	    {
-	      s->chup[0] = f_arr_1[0] = chux;
-	      s->chup[1] = f_arr_2[0] = chuy;
+        {
+          if (chux != s->chup[0] || chuy != s->chup[1])
+            {
+              s->chup[0] = f_arr_1[0] = chux;
+              s->chup[1] = f_arr_2[0] = chuy;
 
-	      /* call the device driver link routine */
-	      gks_ddlk(SET_TEXT_UPVEC,
-		0, 0, 0, i_arr, 1, f_arr_1, 1, f_arr_2, 0, c_arr, NULL);
-	    }
-	}
+              /* call the device driver link routine */
+              gks_ddlk(SET_TEXT_UPVEC, 0, 0, 0, i_arr, 1, f_arr_1, 1, f_arr_2, 0, c_arr, NULL);
+            }
+        }
       else
-	/* character up vector is invalid */
-	gks_report_error(SET_TEXT_UPVEC, 74);
+        /* character up vector is invalid */
+        gks_report_error(SET_TEXT_UPVEC, 74);
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1509,13 +1592,12 @@ void gks_set_text_path(int txp)
   if (state >= GKS_K_GKOP)
     {
       if (txp != s->txp)
-	{
-	  s->txp = i_arr[0] = txp;
+        {
+          s->txp = i_arr[0] = txp;
 
-	  /* call the device driver link routine */
-	  gks_ddlk(SET_TEXT_PATH,
-	    1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-	}
+          /* call the device driver link routine */
+          gks_ddlk(SET_TEXT_PATH, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+        }
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1528,14 +1610,13 @@ void gks_set_text_align(int txalh, int txalv)
   if (state >= GKS_K_GKOP)
     {
       if (txalh != s->txal[0] || txalv != s->txal[1])
-	{
-	  s->txal[0] = i_arr[0] = txalh;
-	  s->txal[1] = i_arr[1] = txalv;
+        {
+          s->txal[0] = i_arr[0] = txalh;
+          s->txal[1] = i_arr[1] = txalv;
 
-	  /* call the device driver link routine */
-	  gks_ddlk(SET_TEXT_ALIGN,
-	    2, 1, 2, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-	}
+          /* call the device driver link routine */
+          gks_ddlk(SET_TEXT_ALIGN, 2, 1, 2, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+        }
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1548,16 +1629,15 @@ void gks_set_fill_index(int index)
   if (state >= GKS_K_GKOP)
     {
       if (index >= 1 && index <= 5)
-	{
-	  s->findex = i_arr[0] = index;
+        {
+          s->findex = i_arr[0] = index;
 
-	  /* call the device driver link routine */
-	  gks_ddlk(SET_FILL_INDEX,
-	    1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-	}
+          /* call the device driver link routine */
+          gks_ddlk(SET_FILL_INDEX, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+        }
       else
-	/* fill area index is invalid */
-	gks_report_error(SET_FILL_INDEX, 75);
+        /* fill area index is invalid */
+        gks_report_error(SET_FILL_INDEX, 75);
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1570,13 +1650,12 @@ void gks_set_fill_int_style(int ints)
   if (state >= GKS_K_GKOP)
     {
       if (ints != s->ints)
-	{
-	  s->ints = i_arr[0] = ints;
+        {
+          s->ints = i_arr[0] = ints;
 
-	  /* call the device driver link routine */
-	  gks_ddlk(SET_FILL_INT_STYLE,
-	    1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-	}
+          /* call the device driver link routine */
+          gks_ddlk(SET_FILL_INT_STYLE, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+        }
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1589,21 +1668,20 @@ void gks_set_fill_style_index(int styli)
   if (state >= GKS_K_GKOP)
     {
       if (styli >= -106 && styli <= -101)
-	styli = gksgral_fill_styles[styli + 106];
+        styli = gksgral_fill_styles[styli + 106];
       else if (styli >= -6 && styli <= -1)
-	styli = gddm_fill_styles[styli + 6];
+        styli = gddm_fill_styles[styli + 6];
 
       if (styli >= 0)
-	{
-	  s->styli = i_arr[0] = styli;
+        {
+          s->styli = i_arr[0] = styli;
 
-	  /* call the device driver link routine */
-	  gks_ddlk(SET_FILL_STYLE_INDEX,
-	    1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-	}
+          /* call the device driver link routine */
+          gks_ddlk(SET_FILL_STYLE_INDEX, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+        }
       else
-	/* style index is invalid */
-	gks_report_error(SET_FILL_STYLE_INDEX, 78);
+        /* style index is invalid */
+        gks_report_error(SET_FILL_STYLE_INDEX, 78);
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1616,19 +1694,18 @@ void gks_set_fill_color_index(int coli)
   if (state >= GKS_K_GKOP)
     {
       if (coli >= 0)
-	{
-	  if (coli != s->facoli)
-	    {
-	      s->facoli = i_arr[0] = coli;
+        {
+          if (coli != s->facoli)
+            {
+              s->facoli = i_arr[0] = coli;
 
-	      /* call the device driver link routine */
-	      gks_ddlk(SET_FILL_COLOR_INDEX,
-		1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-	    }
-	}
+              /* call the device driver link routine */
+              gks_ddlk(SET_FILL_COLOR_INDEX, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+            }
+        }
       else
-	/* color index is invalid */
-	gks_report_error(SET_FILL_COLOR_INDEX, 65);
+        /* color index is invalid */
+        gks_report_error(SET_FILL_COLOR_INDEX, 65);
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1642,12 +1719,10 @@ void gks_set_asf(int *flag)
 
   if (state >= GKS_K_GKOP)
     {
-      for (i = 0; i < 13; i++)
-	s->asf[i] = i_arr[i] = flag[i];
+      for (i = 0; i < 13; i++) s->asf[i] = i_arr[i] = flag[i];
 
       /* call the device driver link routine */
-      gks_ddlk(SET_ASF,
-        13, 1, 13, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+      gks_ddlk(SET_ASF, 13, 1, 13, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1655,47 +1730,44 @@ void gks_set_asf(int *flag)
     gks_report_error(SET_ASF, 8);
 }
 
-void gks_set_color_rep(int wkid, int index,
-                       double red, double green, double blue)
+void gks_set_color_rep(int wkid, int index, double red, double green, double blue)
 {
   if (state >= GKS_K_GKOP)
     {
       if (wkid > 0)
-	{
-	  if (gks_list_find(open_ws, wkid) != NULL)
-	    {
-	      if (index >= 0)
-		{
-		  if (red >= 0 && red <= 1 && green >= 0 && green <= 1 &&
-		      blue >= 0 && blue <= 1)
-		    {
+        {
+          if (gks_list_find(open_ws, wkid) != NULL)
+            {
+              if (index >= 0)
+                {
+                  if (red >= 0 && red <= 1 && green >= 0 && green <= 1 && blue >= 0 && blue <= 1)
+                    {
                       gks_set_rgb(index, red, green, blue);
 
-		      i_arr[0] = wkid;
-		      i_arr[1] = index;
-		      f_arr_1[0] = red;
-		      f_arr_1[1] = green;
-		      f_arr_1[2] = blue;
+                      i_arr[0] = wkid;
+                      i_arr[1] = index;
+                      f_arr_1[0] = red;
+                      f_arr_1[1] = green;
+                      f_arr_1[2] = blue;
 
-		      /* call the device driver link routine */
-		      gks_ddlk(SET_COLOR_REP,
-			2, 1, 2, i_arr, 3, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-		    }
-		  else
-		    /* color is invalid */
-		    gks_report_error(SET_COLOR_REP, 88);
-		}
-	      else
-		/* color index is invalid */
-		gks_report_error(SET_COLOR_REP, 85);
-	    }
-	  else
-	    /* specified workstation is not open */
-	    gks_report_error(SET_COLOR_REP, 25);
-	}
+                      /* call the device driver link routine */
+                      gks_ddlk(SET_COLOR_REP, 2, 1, 2, i_arr, 3, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+                    }
+                  else
+                    /* color is invalid */
+                    gks_report_error(SET_COLOR_REP, 88);
+                }
+              else
+                /* color index is invalid */
+                gks_report_error(SET_COLOR_REP, 85);
+            }
+          else
+            /* specified workstation is not open */
+            gks_report_error(SET_COLOR_REP, 25);
+        }
       else
-	/* specified workstation identifier is invalid */
-	gks_report_error(SET_COLOR_REP, 20);
+        /* specified workstation identifier is invalid */
+        gks_report_error(SET_COLOR_REP, 20);
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1708,32 +1780,30 @@ void gks_set_window(int tnr, double xmin, double xmax, double ymin, double ymax)
   if (state >= GKS_K_GKOP)
     {
       if (tnr > 0 && tnr < MAX_TNR)
-	{
-	  /* Check whether the given coordinate range does not lead
-	     to loss of precision in subsequent GKS functions. It must
-	     be ensured that there are at least 4 significant digits
-	     when applying normalization or device transformations */
-	  if (xmin < xmax && check_range(xmin, xmax) &&
-              ymin < ymax && check_range(ymin, ymax))
-	    {
-	      i_arr[0] = tnr;
-	      s->window[tnr][0] = f_arr_1[0] = xmin;
-	      s->window[tnr][1] = f_arr_1[1] = xmax;
-	      s->window[tnr][2] = f_arr_2[0] = ymin;
-	      s->window[tnr][3] = f_arr_2[1] = ymax;
-	      gks_set_norm_xform(tnr, s->window[tnr], s->viewport[tnr]);
+        {
+          /* Check whether the given coordinate range does not lead
+             to loss of precision in subsequent GKS functions. It must
+             be ensured that there are at least 4 significant digits
+             when applying normalization or device transformations */
+          if (xmin < xmax && check_range(xmin, xmax) && ymin < ymax && check_range(ymin, ymax))
+            {
+              i_arr[0] = tnr;
+              s->window[tnr][0] = f_arr_1[0] = xmin;
+              s->window[tnr][1] = f_arr_1[1] = xmax;
+              s->window[tnr][2] = f_arr_2[0] = ymin;
+              s->window[tnr][3] = f_arr_2[1] = ymax;
+              gks_set_norm_xform(tnr, s->window[tnr], s->viewport[tnr]);
 
-	      /* call the device driver link routine */
-	      gks_ddlk(SET_WINDOW,
-		1, 1, 1, i_arr, 2, f_arr_1, 2, f_arr_2, 0, c_arr, NULL);
-	    }
-	  else
-	    /* rectangle definition is invalid */
-	    gks_report_error(SET_WINDOW, 51);
-	}
+              /* call the device driver link routine */
+              gks_ddlk(SET_WINDOW, 1, 1, 1, i_arr, 2, f_arr_1, 2, f_arr_2, 0, c_arr, NULL);
+            }
+          else
+            /* rectangle definition is invalid */
+            gks_report_error(SET_WINDOW, 51);
+        }
       else
-	/* transformation number is invalid */
-	gks_report_error(SET_WINDOW, 50);
+        /* transformation number is invalid */
+        gks_report_error(SET_WINDOW, 50);
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1741,39 +1811,37 @@ void gks_set_window(int tnr, double xmin, double xmax, double ymin, double ymax)
     gks_report_error(SET_WINDOW, 8);
 }
 
-void gks_set_viewport(
-  int tnr, double xmin, double xmax, double ymin, double ymax)
+void gks_set_viewport(int tnr, double xmin, double xmax, double ymin, double ymax)
 {
   if (state >= GKS_K_GKOP)
     {
       if (tnr > 0 && tnr < MAX_TNR)
-	{
-	  if (xmin < xmax && ymin < ymax)
-	    {
-	      if (xmin >= 0 && xmax <= 1 && ymin >=0 && ymax <= 1)
-		{
-		  i_arr[0] = tnr;
-		  s->viewport[tnr][0] = f_arr_1[0] = xmin;
-		  s->viewport[tnr][1] = f_arr_1[1] = xmax;
-		  s->viewport[tnr][2] = f_arr_2[0] = ymin;
-		  s->viewport[tnr][3] = f_arr_2[1] = ymax;
-		  gks_set_norm_xform(tnr, s->window[tnr], s->viewport[tnr]);
+        {
+          if (xmin < xmax && ymin < ymax)
+            {
+              if (xmin >= 0 && xmax <= 1 && ymin >= 0 && ymax <= 1)
+                {
+                  i_arr[0] = tnr;
+                  s->viewport[tnr][0] = f_arr_1[0] = xmin;
+                  s->viewport[tnr][1] = f_arr_1[1] = xmax;
+                  s->viewport[tnr][2] = f_arr_2[0] = ymin;
+                  s->viewport[tnr][3] = f_arr_2[1] = ymax;
+                  gks_set_norm_xform(tnr, s->window[tnr], s->viewport[tnr]);
 
-		  /* call the device driver link routine */
-		  gks_ddlk(SET_VIEWPORT,
-		    1, 1, 1, i_arr, 2, f_arr_1, 2, f_arr_2, 0, c_arr, NULL);
-		}
-	      else
-		/* viewport is not within the NDC unit square */
-		gks_report_error(SET_VIEWPORT, 52);
-	    }
-	  else
-	    /* rectangle definition is invalid */
-	    gks_report_error(SET_VIEWPORT, 51);
-	}
+                  /* call the device driver link routine */
+                  gks_ddlk(SET_VIEWPORT, 1, 1, 1, i_arr, 2, f_arr_1, 2, f_arr_2, 0, c_arr, NULL);
+                }
+              else
+                /* viewport is not within the NDC unit square */
+                gks_report_error(SET_VIEWPORT, 52);
+            }
+          else
+            /* rectangle definition is invalid */
+            gks_report_error(SET_VIEWPORT, 51);
+        }
       else
-	/* transformation number is invalid */
-	gks_report_error(SET_VIEWPORT, 50);
+        /* transformation number is invalid */
+        gks_report_error(SET_VIEWPORT, 50);
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1786,16 +1854,15 @@ void gks_select_xform(int tnr)
   if (state >= GKS_K_GKOP)
     {
       if (tnr >= 0 && tnr < MAX_TNR)
-	{
-	  s->cntnr = i_arr[0] = tnr;
+        {
+          s->cntnr = i_arr[0] = tnr;
 
-	  /* call the device driver link routine */
-	  gks_ddlk(SELECT_XFORM,
-	    1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-	}
+          /* call the device driver link routine */
+          gks_ddlk(SELECT_XFORM, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+        }
       else
-	/* transformation number is invalid */
-	gks_report_error(SELECT_XFORM, 50);
+        /* transformation number is invalid */
+        gks_report_error(SELECT_XFORM, 50);
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1808,13 +1875,12 @@ void gks_set_clipping(int clsw)
   if (state >= GKS_K_GKOP)
     {
       if (clsw != s->clip)
-	{
-	  s->clip = i_arr[0] = clsw;
+        {
+          s->clip = i_arr[0] = clsw;
 
-	  /* call the device driver link routine */
-	  gks_ddlk(SET_CLIPPING,
-	    1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
-	}
+          /* call the device driver link routine */
+          gks_ddlk(SET_CLIPPING, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+        }
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1822,44 +1888,42 @@ void gks_set_clipping(int clsw)
     gks_report_error(SET_CLIPPING, 8);
 }
 
-void gks_set_ws_window(
-  int wkid, double xmin, double xmax, double ymin, double ymax)
+void gks_set_ws_window(int wkid, double xmin, double xmax, double ymin, double ymax)
 {
   if (state >= GKS_K_WSOP)
     {
       if (wkid > 0)
-	{
-	  if (gks_list_find(open_ws, wkid) != NULL)
-	    {
-	      if (xmin < xmax && ymin < ymax)
-		{
-		  if (xmin >= 0 && xmax <= 1 && ymin >=0 && ymax <= 1)
-		    {
-		      i_arr[0] = wkid;
-		      f_arr_1[0] = xmin;
-		      f_arr_1[1] = xmax;
-		      f_arr_2[0] = ymin;
-		      f_arr_2[1] = ymax;
+        {
+          if (gks_list_find(open_ws, wkid) != NULL)
+            {
+              if (xmin < xmax && ymin < ymax)
+                {
+                  if (xmin >= 0 && xmax <= 1 && ymin >= 0 && ymax <= 1)
+                    {
+                      i_arr[0] = wkid;
+                      f_arr_1[0] = xmin;
+                      f_arr_1[1] = xmax;
+                      f_arr_2[0] = ymin;
+                      f_arr_2[1] = ymax;
 
-		      /* call the device driver link routine */
-		      gks_ddlk(SET_WS_WINDOW,
-			1, 1, 1, i_arr, 2, f_arr_1, 2, f_arr_2, 0, c_arr, NULL);
-		    }
-		  else
-		    /* workstation window is not within the NDC unit square */
-		    gks_report_error(SET_WS_WINDOW, 53);
-		}
-	      else
-		/* rectangle definition is invalid */
-		gks_report_error(SET_WS_WINDOW, 51);
-	    }
-	  else
-	    /* specified workstation is not open */
-	    gks_report_error(SET_WS_WINDOW, 25);
-	}
+                      /* call the device driver link routine */
+                      gks_ddlk(SET_WS_WINDOW, 1, 1, 1, i_arr, 2, f_arr_1, 2, f_arr_2, 0, c_arr, NULL);
+                    }
+                  else
+                    /* workstation window is not within the NDC unit square */
+                    gks_report_error(SET_WS_WINDOW, 53);
+                }
+              else
+                /* rectangle definition is invalid */
+                gks_report_error(SET_WS_WINDOW, 51);
+            }
+          else
+            /* specified workstation is not open */
+            gks_report_error(SET_WS_WINDOW, 25);
+        }
       else
-	/* specified workstation identifier is invalid */
-	gks_report_error(SET_WS_WINDOW, 20);
+        /* specified workstation identifier is invalid */
+        gks_report_error(SET_WS_WINDOW, 20);
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1867,38 +1931,35 @@ void gks_set_ws_window(
     gks_report_error(SET_WS_WINDOW, 7);
 }
 
-void gks_set_ws_viewport(
-  int wkid, double xmin, double xmax, double ymin, double ymax)
+void gks_set_ws_viewport(int wkid, double xmin, double xmax, double ymin, double ymax)
 {
   if (state >= GKS_K_WSOP)
     {
       if (wkid > 0)
-	{
-	  if (gks_list_find(open_ws, wkid) != NULL)
-	    {
-	      if (xmin < xmax && ymin < ymax)
-		{
-		  i_arr[0] = wkid;
-		  f_arr_1[0] = xmin;
-		  f_arr_1[1] = xmax;
-		  f_arr_2[0] = ymin;
-		  f_arr_2[1] = ymax;
-
-		  /* call the device driver link routine */
-		  gks_ddlk(SET_WS_VIEWPORT,
-		    1, 1, 1, i_arr, 2, f_arr_1, 2, f_arr_2, 0, c_arr, NULL);
-		}
-	      else
-		/* rectangle definition is invalid */
-		gks_report_error(SET_WS_VIEWPORT, 51);
-	    }
-	  else
-	    /* specified workstation is not open */
-	    gks_report_error(SET_WS_VIEWPORT, 25);
-	}
+        {
+          if (gks_list_find(open_ws, wkid) != NULL)
+            {
+              if (xmin < xmax && ymin < ymax)
+                {
+                  i_arr[0] = wkid;
+                  f_arr_1[0] = xmin;
+                  f_arr_1[1] = xmax;
+                  f_arr_2[0] = ymin;
+                  f_arr_2[1] = ymax;
+                  /* call the device driver link routine */
+                  gks_ddlk(SET_WS_VIEWPORT, 1, 1, 1, i_arr, 2, f_arr_1, 2, f_arr_2, 0, c_arr, NULL);
+                }
+              else
+                /* rectangle definition is invalid */
+                gks_report_error(SET_WS_VIEWPORT, 51);
+            }
+          else
+            /* specified workstation is not open */
+            gks_report_error(SET_WS_VIEWPORT, 25);
+        }
       else
-	/* specified workstation identifier is invalid */
-	gks_report_error(SET_WS_VIEWPORT, 20);
+        /* specified workstation identifier is invalid */
+        gks_report_error(SET_WS_VIEWPORT, 20);
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -1913,14 +1974,13 @@ void gks_create_seg(int segn)
       i_arr[0] = segn;
 
       /* call the device driver link routine */
-      gks_ddlk(CREATE_SEG,
-	1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+      gks_ddlk(CREATE_SEG, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
 
       s->opsg = segn;
       state = GKS_K_SGOP;
 
       /* save segment state */
-      seg_state = (gks_state_list_t *) gks_malloc(sizeof(gks_state_list_t));
+      seg_state = (gks_state_list_t *)gks_malloc(sizeof(gks_state_list_t));
       memmove(seg_state, s, sizeof(gks_state_list_t));
     }
   else
@@ -1933,8 +1993,7 @@ void gks_close_seg(void)
   if (state == GKS_K_SGOP)
     {
       /* call the device driver link routine */
-      gks_ddlk(CLOSE_SEG,
-	0, 0, 0, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+      gks_ddlk(CLOSE_SEG, 0, 0, 0, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
 
       state = GKS_K_WSAC;
       s->opsg = 0;
@@ -1951,8 +2010,7 @@ void gks_delete_seg(int segn)
       i_arr[0] = segn;
 
       /* call the device driver link routine */
-      gks_ddlk(DELETE_SEG,
-	1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+      gks_ddlk(DELETE_SEG, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
     }
   else
     /* GKS not in proper state. GKS must be in one of the
@@ -1967,36 +2025,36 @@ void gks_assoc_seg_with_ws(int wkid, int segn)
   if (state >= GKS_K_WSOP)
     {
       if (wkid > 0)
-	{
-	  if (s->wiss)
-	    {
-	      if (gks_list_find(active_ws, wkid) != NULL)
-		{
-		  /* save GKS state, restore segment state */
-		  memmove(&sl, s, sizeof(gks_state_list_t));
-		  memmove(s, seg_state, sizeof(gks_state_list_t));
+        {
+          if (s->wiss)
+            {
+              if (gks_list_find(active_ws, wkid) != NULL)
+                {
+                  /* save GKS state, restore segment state */
+                  memmove(&sl, s, sizeof(gks_state_list_t));
+                  memmove(s, seg_state, sizeof(gks_state_list_t));
 
-		  id = wkid;
+                  id = wkid;
 
-		  /* call the WISS dispatch routine */
-		  gks_wiss_dispatch(ASSOC_SEG_WITH_WS, wkid, segn);
+                  /* call the WISS dispatch routine */
+                  gks_wiss_dispatch(ASSOC_SEG_WITH_WS, wkid, segn);
 
-		  id = 0;
+                  id = 0;
 
-		  /* restore GKS state */
-		  memmove(s, &sl, sizeof(gks_state_list_t));
-		}
-	      else
-		/* specified workstation is not active */
-		gks_report_error(ASSOC_SEG_WITH_WS, 30);
-	    }
-	  else
-	    /* WISS is not open */
-	    gks_report_error(ASSOC_SEG_WITH_WS, 27);
-	}
+                  /* restore GKS state */
+                  memmove(s, &sl, sizeof(gks_state_list_t));
+                }
+              else
+                /* specified workstation is not active */
+                gks_report_error(ASSOC_SEG_WITH_WS, 30);
+            }
+          else
+            /* WISS is not open */
+            gks_report_error(ASSOC_SEG_WITH_WS, 27);
+        }
       else
-	/* specified workstation identifier is invalid */
-	gks_report_error(ASSOC_SEG_WITH_WS, 20);
+        /* specified workstation identifier is invalid */
+        gks_report_error(ASSOC_SEG_WITH_WS, 20);
     }
   else
     /* GKS not in proper state. GKS must be in one of the
@@ -2011,36 +2069,36 @@ void gks_copy_seg_to_ws(int wkid, int segn)
   if (state >= GKS_K_WSOP)
     {
       if (wkid > 0)
-	{
-	  if (s->wiss)
-	    {
-	      if (gks_list_find(active_ws, wkid) != NULL)
-		{
-		  /* save GKS state, restore segment state */
-		  memmove(&sl, s, sizeof(gks_state_list_t));
-		  memmove(s, seg_state, sizeof(gks_state_list_t));
+        {
+          if (s->wiss)
+            {
+              if (gks_list_find(active_ws, wkid) != NULL)
+                {
+                  /* save GKS state, restore segment state */
+                  memmove(&sl, s, sizeof(gks_state_list_t));
+                  memmove(s, seg_state, sizeof(gks_state_list_t));
 
-		  id = wkid;
+                  id = wkid;
 
-		  /* call the WISS dispatch routine */
-		  gks_wiss_dispatch(COPY_SEG_TO_WS, wkid, segn);
+                  /* call the WISS dispatch routine */
+                  gks_wiss_dispatch(COPY_SEG_TO_WS, wkid, segn);
 
-		  id = 0;
+                  id = 0;
 
-		  /* restore GKS state */
-		  memmove(s, &sl, sizeof(gks_state_list_t));
-		}
-	      else
-		/* specified workstation is not active */
-		gks_report_error(COPY_SEG_TO_WS, 30);
-	    }
-	  else
-	    /* WISS is not open */
-	    gks_report_error(COPY_SEG_TO_WS, 27);
-	}
+                  /* restore GKS state */
+                  memmove(s, &sl, sizeof(gks_state_list_t));
+                }
+              else
+                /* specified workstation is not active */
+                gks_report_error(COPY_SEG_TO_WS, 30);
+            }
+          else
+            /* WISS is not open */
+            gks_report_error(COPY_SEG_TO_WS, 27);
+        }
       else
-	/* specified workstation identifier is invalid */
-	gks_report_error(COPY_SEG_TO_WS, 20);
+        /* specified workstation identifier is invalid */
+        gks_report_error(COPY_SEG_TO_WS, 20);
     }
   else
     /* GKS not in proper state. GKS must be in one of the
@@ -2055,8 +2113,7 @@ void gks_set_seg_xform(int segn, double mat[3][2])
   if (state >= GKS_K_GKOP)
     {
       for (i = 0; i < 3; i++)
-	for (j = 0; j < 2; j++)
-	  s->mat[i][j] = mat[i][j];
+        for (j = 0; j < 2; j++) s->mat[i][j] = mat[i][j];
     }
   else
     /* GKS not in proper state. GKS must be in one of the
@@ -2064,8 +2121,7 @@ void gks_set_seg_xform(int segn, double mat[3][2])
     gks_report_error(SET_SEG_XFORM, 8);
 }
 
-static
-int workstation_category(int wkid)
+static int workstation_category(int wkid)
 {
   gks_list_t *element;
   ws_list_t *ws;
@@ -2073,10 +2129,10 @@ int workstation_category(int wkid)
 
   if ((element = gks_list_find(open_ws, wkid)) != NULL)
     {
-      ws = (ws_list_t *) element->ptr;
+      ws = (ws_list_t *)element->ptr;
 
       element = gks_list_find(av_ws_types, ws->wtype);
-      descr = (ws_descr_t *) element->ptr;
+      descr = (ws_descr_t *)element->ptr;
 
       return descr->wscat;
     }
@@ -2084,49 +2140,47 @@ int workstation_category(int wkid)
     return -1;
 }
 
-void gks_initialize_locator(
-  int wkid, int lcdnr, int tnr, double px, double py, int pet,
-  double xmin, double xmax, double ymin, double ymax, int ldr, char *datrec)
+void gks_initialize_locator(int wkid, int lcdnr, int tnr, double px, double py, int pet, double xmin, double xmax,
+                            double ymin, double ymax, int ldr, char *datrec)
 {
   int wscat;
 
   if (state >= GKS_K_WSOP)
     {
       if (wkid > 0)
-	{
-	  if (gks_list_find(open_ws, wkid) != NULL)
-	    {
-	      wscat = workstation_category(wkid);
+        {
+          if (gks_list_find(open_ws, wkid) != NULL)
+            {
+              wscat = workstation_category(wkid);
 
-	      if (wscat == 1 || wscat == 2)
-		{
-		  i_arr[0] = wkid;
-		  i_arr[1] = lcdnr;
-		  i_arr[2] = tnr;
-		  i_arr[3] = pet;
-		  f_arr_1[0] = px;
-		  f_arr_1[1] = xmin;
-		  f_arr_1[2] = xmax;
-		  f_arr_2[0] = py;
-		  f_arr_2[1] = ymin;
-		  f_arr_2[2] = ymax;
+              if (wscat == 1 || wscat == 2)
+                {
+                  i_arr[0] = wkid;
+                  i_arr[1] = lcdnr;
+                  i_arr[2] = tnr;
+                  i_arr[3] = pet;
+                  f_arr_1[0] = px;
+                  f_arr_1[1] = xmin;
+                  f_arr_1[2] = xmax;
+                  f_arr_2[0] = py;
+                  f_arr_2[1] = ymin;
+                  f_arr_2[2] = ymax;
 
-		  /* call the device driver link routine */
-		  gks_ddlk(INITIALIZE_LOCATOR,
-		    4, 1, 4, i_arr, 3, f_arr_1, 3, f_arr_2, 1, datrec, NULL);
-		}
-	      else
-		/* specified workstation is neither of category INPUT nor of
-		   category OUTIN */
-		gks_report_error(INITIALIZE_LOCATOR, 38);
-	    }
-	  else
-	    /* specified workstation is not open */
-	    gks_report_error(INITIALIZE_LOCATOR, 25);
-	}
+                  /* call the device driver link routine */
+                  gks_ddlk(INITIALIZE_LOCATOR, 4, 1, 4, i_arr, 3, f_arr_1, 3, f_arr_2, 1, datrec, NULL);
+                }
+              else
+                /* specified workstation is neither of category INPUT nor of
+                   category OUTIN */
+                gks_report_error(INITIALIZE_LOCATOR, 38);
+            }
+          else
+            /* specified workstation is not open */
+            gks_report_error(INITIALIZE_LOCATOR, 25);
+        }
       else
-	/* specified workstation identifier is invalid */
-	gks_report_error(INITIALIZE_LOCATOR, 20);
+        /* specified workstation identifier is invalid */
+        gks_report_error(INITIALIZE_LOCATOR, 20);
     }
   else
     /* GKS not in proper state. GKS must be in one of the
@@ -2134,47 +2188,45 @@ void gks_initialize_locator(
     gks_report_error(INITIALIZE_LOCATOR, 7);
 }
 
-void gks_request_locator(
-  int wkid, int lcdnr, int *stat, int *tnr, double *px, double *py)
+void gks_request_locator(int wkid, int lcdnr, int *stat, int *tnr, double *px, double *py)
 {
   int wscat;
 
   if (state >= GKS_K_WSOP)
     {
       if (wkid > 0)
-	{
-	  if (gks_list_find(open_ws, wkid) != NULL)
-	    {
-	      wscat = workstation_category(wkid);
+        {
+          if (gks_list_find(open_ws, wkid) != NULL)
+            {
+              wscat = workstation_category(wkid);
 
-	      if (wscat == 1 || wscat == 2)
-		{
-		  i_arr[0] = wkid;
-		  i_arr[1] = lcdnr;
-		  f_arr_1[0] = px[0];
-		  f_arr_2[0] = py[0];
+              if (wscat == 1 || wscat == 2)
+                {
+                  i_arr[0] = wkid;
+                  i_arr[1] = lcdnr;
+                  f_arr_1[0] = px[0];
+                  f_arr_2[0] = py[0];
 
-		  /* call the device driver link routine */
-		  gks_ddlk(REQUEST_LOCATOR,
-		    2, 1, 2, i_arr, 1, f_arr_1, 1, f_arr_2, 0, c_arr, NULL);
+                  /* call the device driver link routine */
+                  gks_ddlk(REQUEST_LOCATOR, 2, 1, 2, i_arr, 1, f_arr_1, 1, f_arr_2, 0, c_arr, NULL);
 
-		  *stat = i_arr[0];
-		  *tnr = 0;
-		  *px = f_arr_1[0];
-		  *py = f_arr_2[0];
-		}
-	      else
-		/* specified workstation is neither of category INPUT nor of
-		   category OUTIN */
-		gks_report_error(REQUEST_LOCATOR, 38);
-	    }
-	  else
-	    /* specified workstation is not open */
-	    gks_report_error(REQUEST_LOCATOR, 25);
-	}
+                  *stat = i_arr[0];
+                  *tnr = 0;
+                  *px = f_arr_1[0];
+                  *py = f_arr_2[0];
+                }
+              else
+                /* specified workstation is neither of category INPUT nor of
+                   category OUTIN */
+                gks_report_error(REQUEST_LOCATOR, 38);
+            }
+          else
+            /* specified workstation is not open */
+            gks_report_error(REQUEST_LOCATOR, 25);
+        }
       else
-	/* specified workstation identifier is invalid */
-	gks_report_error(REQUEST_LOCATOR, 20);
+        /* specified workstation identifier is invalid */
+        gks_report_error(REQUEST_LOCATOR, 20);
     }
   else
     /* GKS not in proper state. GKS must be in one of the
@@ -2182,46 +2234,43 @@ void gks_request_locator(
     gks_report_error(REQUEST_LOCATOR, 7);
 }
 
-void gks_request_stroke(
-  int wkid, int skdnr, int n,
-  int *stat, int *tnr, int *np, double *pxa, double *pya)
+void gks_request_stroke(int wkid, int skdnr, int n, int *stat, int *tnr, int *np, double *pxa, double *pya)
 {
   int wscat;
 
   if (state >= GKS_K_WSOP)
     {
       if (wkid > 0)
-	{
-	  if (gks_list_find(open_ws, wkid) != NULL)
-	    {
-	      wscat = workstation_category(wkid);
+        {
+          if (gks_list_find(open_ws, wkid) != NULL)
+            {
+              wscat = workstation_category(wkid);
 
-	      if (wscat == 1 || wscat == 2)
-		{
-		  i_arr[0] = wkid;
-		  i_arr[1] = skdnr;
-		  i_arr[2] = n;
+              if (wscat == 1 || wscat == 2)
+                {
+                  i_arr[0] = wkid;
+                  i_arr[1] = skdnr;
+                  i_arr[2] = n;
 
-		  /* call the device driver link routine */
-		  gks_ddlk(REQUEST_STROKE,
-		    3, 1, 3, i_arr, n, pxa, n, pya, 0, c_arr, NULL);
+                  /* call the device driver link routine */
+                  gks_ddlk(REQUEST_STROKE, 3, 1, 3, i_arr, n, pxa, n, pya, 0, c_arr, NULL);
 
-		  *stat = i_arr[0];
-		  *tnr = 0;
-		  *np = i_arr[2];
-		}
-	      else
-		/* specified workstation is neither of category INPUT nor of
-		   category OUTIN */
-		gks_report_error(REQUEST_STROKE, 38);
-	    }
-	  else
-	    /* specified workstation is not open */
-	    gks_report_error(REQUEST_STROKE, 25);
-	}
+                  *stat = i_arr[0];
+                  *tnr = 0;
+                  *np = i_arr[2];
+                }
+              else
+                /* specified workstation is neither of category INPUT nor of
+                   category OUTIN */
+                gks_report_error(REQUEST_STROKE, 38);
+            }
+          else
+            /* specified workstation is not open */
+            gks_report_error(REQUEST_STROKE, 25);
+        }
       else
-	/* specified workstation identifier is invalid */
-	gks_report_error(REQUEST_STROKE, 20);
+        /* specified workstation identifier is invalid */
+        gks_report_error(REQUEST_STROKE, 20);
     }
   else
     /* GKS not in proper state. GKS must be in one of the
@@ -2236,35 +2285,34 @@ void gks_request_choice(int wkid, int chdnr, int *stat, int *chnr)
   if (state >= GKS_K_WSOP)
     {
       if (wkid > 0)
-	{
-	  if (gks_list_find(open_ws, wkid) != NULL)
-	    {
-	      wscat = workstation_category(wkid);
+        {
+          if (gks_list_find(open_ws, wkid) != NULL)
+            {
+              wscat = workstation_category(wkid);
 
-	      if (wscat == 1 || wscat == 2)
-		{
-		  i_arr[0] = wkid;
-		  i_arr[1] = chdnr;
+              if (wscat == 1 || wscat == 2)
+                {
+                  i_arr[0] = wkid;
+                  i_arr[1] = chdnr;
 
-		  /* call the device driver link routine */
-		  gks_ddlk(REQUEST_CHOICE,
-		    2, 1, 2, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+                  /* call the device driver link routine */
+                  gks_ddlk(REQUEST_CHOICE, 2, 1, 2, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
 
-		  *stat = i_arr[0];
-		  *chnr = i_arr[1];
-		}
-	      else
-		/* specified workstation is neither of category INPUT nor of
-		   category OUTIN */
-		gks_report_error(REQUEST_CHOICE, 38);
-	    }
-	  else
-	    /* specified workstation is not open */
-	    gks_report_error(REQUEST_CHOICE, 25);
-	}
+                  *stat = i_arr[0];
+                  *chnr = i_arr[1];
+                }
+              else
+                /* specified workstation is neither of category INPUT nor of
+                   category OUTIN */
+                gks_report_error(REQUEST_CHOICE, 38);
+            }
+          else
+            /* specified workstation is not open */
+            gks_report_error(REQUEST_CHOICE, 25);
+        }
       else
-	/* specified workstation identifier is invalid */
-	gks_report_error(REQUEST_CHOICE, 20);
+        /* specified workstation identifier is invalid */
+        gks_report_error(REQUEST_CHOICE, 20);
     }
   else
     /* GKS not in proper state. GKS must be in one of the
@@ -2279,35 +2327,34 @@ void gks_request_string(int wkid, int stdnr, int *stat, int *lostr, char *str)
   if (state >= GKS_K_WSOP)
     {
       if (wkid > 0)
-	{
-	  if (gks_list_find(open_ws, wkid) != NULL)
-	    {
-	      wscat = workstation_category(wkid);
+        {
+          if (gks_list_find(open_ws, wkid) != NULL)
+            {
+              wscat = workstation_category(wkid);
 
-	      if (wscat == 1 || wscat == 2)
-		{
-		  i_arr[0] = wkid;
-		  i_arr[1] = stdnr;
+              if (wscat == 1 || wscat == 2)
+                {
+                  i_arr[0] = wkid;
+                  i_arr[1] = stdnr;
 
-		  /* call the device driver link routine */
-		  gks_ddlk(REQUEST_STRING,
-		    2, 1, 2, i_arr, 0, f_arr_1, 0, f_arr_2, 1, str, NULL);
+                  /* call the device driver link routine */
+                  gks_ddlk(REQUEST_STRING, 2, 1, 2, i_arr, 0, f_arr_1, 0, f_arr_2, 1, str, NULL);
 
-		  *stat = i_arr[0];
-		  *lostr = i_arr[1];
-		}
-	      else
-		/* specified workstation is neither of category INPUT nor of
-		   category OUTIN */
-		gks_report_error(REQUEST_STRING, 38);
-	    }
-	  else
-	    /* specified workstation is not open */
-	    gks_report_error(REQUEST_STRING, 25);
-	}
+                  *stat = i_arr[0];
+                  *lostr = i_arr[1];
+                }
+              else
+                /* specified workstation is neither of category INPUT nor of
+                   category OUTIN */
+                gks_report_error(REQUEST_STRING, 38);
+            }
+          else
+            /* specified workstation is not open */
+            gks_report_error(REQUEST_STRING, 25);
+        }
       else
-	/* specified workstation identifier is invalid */
-	gks_report_error(REQUEST_STRING, 20);
+        /* specified workstation identifier is invalid */
+        gks_report_error(REQUEST_STRING, 20);
     }
   else
     /* GKS not in proper state. GKS must be in one of the
@@ -2323,31 +2370,30 @@ void gks_read_item(int wkid, int lenidr, int maxodr, char *odr)
   if (state >= GKS_K_WSOP)
     {
       if (wkid > 0)
-	{
-	  if ((element = gks_list_find(open_ws, wkid)) != NULL)
-	    {
-	      ws = (ws_list_t *) element->ptr;
-	      if (ws->wtype == 3)
-		{
-		  i_arr[0] = wkid;
-		  i_arr[1] = lenidr;
-		  i_arr[2] = maxodr;
+        {
+          if ((element = gks_list_find(open_ws, wkid)) != NULL)
+            {
+              ws = (ws_list_t *)element->ptr;
+              if (ws->wtype == 3)
+                {
+                  i_arr[0] = wkid;
+                  i_arr[1] = lenidr;
+                  i_arr[2] = maxodr;
 
-		  /* call the device driver link routine */
-		  gks_ddlk(READ_ITEM,
-		    3, 1, 3, i_arr, 0, f_arr_1, 0, f_arr_2, maxodr, odr, NULL);
-		}
-	      else
-		/* specified workstation is not of category MI */
-		gks_report_error(READ_ITEM, 34);
-	    }
-	  else
-	    /* specified workstation is not open */
-	    gks_report_error(READ_ITEM, 25);
-	}
+                  /* call the device driver link routine */
+                  gks_ddlk(READ_ITEM, 3, 1, 3, i_arr, 0, f_arr_1, 0, f_arr_2, maxodr, odr, NULL);
+                }
+              else
+                /* specified workstation is not of category MI */
+                gks_report_error(READ_ITEM, 34);
+            }
+          else
+            /* specified workstation is not open */
+            gks_report_error(READ_ITEM, 25);
+        }
       else
-	/* specified workstation identifier is invalid */
-	gks_report_error(READ_ITEM, 20);
+        /* specified workstation identifier is invalid */
+        gks_report_error(READ_ITEM, 20);
     }
   else
     /* GKS not in proper state. GKS must be in one of the
@@ -2363,32 +2409,31 @@ void gks_get_item(int wkid, int *type, int *lenodr)
   if (state >= GKS_K_WSOP)
     {
       if (wkid > 0)
-	{
-	  if ((element = gks_list_find(open_ws, wkid)) != NULL)
-	    {
-	      ws = (ws_list_t *) element->ptr;
-	      if (ws->wtype == 3)
-		{
-		  i_arr[0] = wkid;
+        {
+          if ((element = gks_list_find(open_ws, wkid)) != NULL)
+            {
+              ws = (ws_list_t *)element->ptr;
+              if (ws->wtype == 3)
+                {
+                  i_arr[0] = wkid;
 
-		  /* call the device driver link routine */
-		  gks_ddlk(GET_ITEM,
-		    1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+                  /* call the device driver link routine */
+                  gks_ddlk(GET_ITEM, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
 
-		  *type = i_arr[0];
-		  *lenodr = i_arr[1];
-		}
-	      else
-		/* specified workstation is not of category MI */
-		gks_report_error(GET_ITEM, 34);
-	    }
-	  else
-	    /* specified workstation is not open */
-	    gks_report_error(GET_ITEM, 25);
-	}
+                  *type = i_arr[0];
+                  *lenodr = i_arr[1];
+                }
+              else
+                /* specified workstation is not of category MI */
+                gks_report_error(GET_ITEM, 34);
+            }
+          else
+            /* specified workstation is not open */
+            gks_report_error(GET_ITEM, 25);
+        }
       else
-	/* specified workstation identifier is invalid */
-	gks_report_error(GET_ITEM, 20);
+        /* specified workstation identifier is invalid */
+        gks_report_error(GET_ITEM, 20);
     }
   else
     /* GKS not in proper state. GKS must be in one of the
@@ -2401,30 +2446,29 @@ void gks_interpret_item(int type, int lenidr, int dimidr, char *idr)
   if (state >= GKS_K_WSOP)
     {
       if (type >= 0)
-	{
-	  if (lenidr >= 8)
-	    {
-	      if (dimidr >= 1)
-		{
-		  i_arr[0] = type;
-		  i_arr[1] = lenidr;
-		  i_arr[2] = dimidr;
+        {
+          if (lenidr >= 8)
+            {
+              if (dimidr >= 1)
+                {
+                  i_arr[0] = type;
+                  i_arr[1] = lenidr;
+                  i_arr[2] = dimidr;
 
-		  /* call the device driver link routine */
-		  gks_ddlk(INTERPRET_ITEM,
-		    3, 1, 3, i_arr, 0, f_arr_1, 0, f_arr_2, dimidr, idr, NULL);
-		}
-	      else
-		/* metafile item is invalid */
-		gks_report_error(INTERPRET_ITEM, 163);
-	    }
-	  else
-	    /* item length is invalid */
-	    gks_report_error(INTERPRET_ITEM, 161);
-	}
+                  /* call the device driver link routine */
+                  gks_ddlk(INTERPRET_ITEM, 3, 1, 3, i_arr, 0, f_arr_1, 0, f_arr_2, dimidr, idr, NULL);
+                }
+              else
+                /* metafile item is invalid */
+                gks_report_error(INTERPRET_ITEM, 163);
+            }
+          else
+            /* item length is invalid */
+            gks_report_error(INTERPRET_ITEM, 161);
+        }
       else
-	/* item type is not a valid GKS item */
-	gks_report_error(INTERPRET_ITEM, 164);
+        /* item type is not a valid GKS item */
+        gks_report_error(INTERPRET_ITEM, 164);
     }
   else
     /* GKS not in proper state. GKS must be in one of the
@@ -2432,26 +2476,25 @@ void gks_interpret_item(int type, int lenidr, int dimidr, char *idr)
     gks_report_error(INTERPRET_ITEM, 7);
 }
 
-void gks_eval_xform_matrix(
-  double fx, double fy, double transx, double transy, double phi,
-  double scalex, double scaley, int coord, double tran[3][2])
+void gks_eval_xform_matrix(double fx, double fy, double transx, double transy, double phi, double scalex, double scaley,
+                           int coord, double tran[3][2])
 {
   double cosf, sinf;
 
   if (state >= GKS_K_GKOP)
     {
       if (coord == GKS_K_COORDINATES_WC)
-	{
-	  double xorg = 0, yorg = 0;
+        {
+          double xorg = 0, yorg = 0;
 
-	  gks_WC_to_NDC(s->cntnr, &xorg, &yorg);
+          gks_WC_to_NDC(s->cntnr, &xorg, &yorg);
 
-	  gks_WC_to_NDC(s->cntnr, &fx, &fy);
-	  gks_WC_to_NDC(s->cntnr, &transx, &transy);
+          gks_WC_to_NDC(s->cntnr, &fx, &fy);
+          gks_WC_to_NDC(s->cntnr, &transx, &transy);
 
-	  transx -= xorg;
-	  transy -= yorg;
-	}
+          transx -= xorg;
+          transy -= yorg;
+        }
 
       cosf = cos(phi);
       sinf = sin(phi);
@@ -2507,12 +2550,11 @@ void gks_inq_open_ws(int n, int *errind, int *ol, int *wkid)
     {
       list = open_ws;
       while (list != NULL)
-	{
-	  if (n == ++num)
-	    *wkid = list->item;
+        {
+          if (n == ++num) *wkid = list->item;
 
-	  list = list->next;
-	}
+          list = list->next;
+        }
 
       *errind = GKS_K_NO_ERROR;
       *ol = num;
@@ -2530,12 +2572,11 @@ void gks_inq_active_ws(int n, int *errind, int *ol, int *wkid)
     {
       list = active_ws;
       while (list != NULL)
-	{
-	  if (n == ++num)
-	    *wkid = list->item;
+        {
+          if (n == ++num) *wkid = list->item;
 
-	  list = list->next;
-	}
+          list = list->next;
+        }
 
       *errind = GKS_K_NO_ERROR;
       *ol = num;
@@ -2551,9 +2592,7 @@ void gks_inq_segn_ws(int wkid, int n, int *errind, int *ol, int *segn)
   *segn = 0;
 }
 
-void gks_inq_color_rep(
-  int wkid, int index, int type,
-  int *errind, double *red, double *green, double *blue)
+void gks_inq_color_rep(int wkid, int index, int type, int *errind, double *red, double *green, double *blue)
 {
   *errind = GKS_K_NO_ERROR;
   gks_inq_rgb(index, red, green, blue);
@@ -2619,15 +2658,15 @@ void gks_inq_text_fontprec(int *errind, int *font, int *prec)
   if (api)
     {
       if (s->asf[6] == GKS_K_ASF_INDIVIDUAL)
-	{
-	  *font = s->txfont;
-	  *prec = s->txprec;
-	}
+        {
+          *font = s->txfont;
+          *prec = s->txprec;
+        }
       else
-	{
-	  *font = predef_font[s->tindex - 1];
-	  *prec = predef_prec[s->tindex - 1];
-	}
+        {
+          *font = predef_font[s->tindex - 1];
+          *prec = predef_prec[s->tindex - 1];
+        }
     }
   else
     {
@@ -2693,8 +2732,7 @@ void gks_inq_fill_int_style(int *errind, int *ints)
 {
   *errind = GKS_K_NO_ERROR;
   if (api)
-    *ints = s->asf[10] == GKS_K_ASF_INDIVIDUAL ?
-      s->ints : predef_ints[s->findex - 1];
+    *ints = s->asf[10] == GKS_K_ASF_INDIVIDUAL ? s->ints : predef_ints[s->findex - 1];
   else
     *ints = s->ints;
 }
@@ -2703,8 +2741,7 @@ void gks_inq_fill_style_index(int *errind, int *styli)
 {
   *errind = GKS_K_NO_ERROR;
   if (api)
-    *styli = s->asf[11] == GKS_K_ASF_INDIVIDUAL ?
-      s->styli : predef_styli[s->findex - 1];
+    *styli = s->asf[11] == GKS_K_ASF_INDIVIDUAL ? s->styli : predef_styli[s->findex - 1];
   else
     *styli = s->styli;
 }
@@ -2744,10 +2781,10 @@ void gks_inq_xform(int tnr, int *errind, double *wn, double *vp)
       *errind = GKS_K_NO_ERROR;
 
       for (i = 0; i < 4; i++)
-	{
-	  wn[i] = s->window[tnr][i];
-	  vp[i] = s->viewport[tnr][i];
-	}
+        {
+          wn[i] = s->window[tnr][i];
+          vp[i] = s->viewport[tnr][i];
+        }
     }
   else
     *errind = GKS_K_ERROR;
@@ -2761,8 +2798,7 @@ void gks_inq_clip(int *errind, int *clsw, double *clrt)
   *clsw = s->clip;
 
   tnr = (s->clip == GKS_K_CLIP) ? s->cntnr : 0;
-  for (i = 0; i < 4; i++)
-    clrt[i] = s->viewport[tnr][i];
+  for (i = 0; i < 4; i++) clrt[i] = s->viewport[tnr][i];
 }
 
 void gks_inq_ws_conntype(int wkid, int *errind, int *conid, int *wtype)
@@ -2772,7 +2808,7 @@ void gks_inq_ws_conntype(int wkid, int *errind, int *conid, int *wtype)
 
   if ((element = gks_list_find(open_ws, wkid)) != NULL)
     {
-      ws = (ws_list_t *) element->ptr;
+      ws = (ws_list_t *)element->ptr;
 
       *errind = GKS_K_NO_ERROR;
       *conid = ws->conid;
@@ -2789,7 +2825,7 @@ void gks_inq_ws_category(int wtype, int *errind, int *wscat)
 
   if ((element = gks_list_find(av_ws_types, wtype)) != NULL)
     {
-      ws = (ws_descr_t *) element->ptr;
+      ws = (ws_descr_t *)element->ptr;
 
       *errind = GKS_K_NO_ERROR;
       *wscat = ws->wscat;
@@ -2798,28 +2834,30 @@ void gks_inq_ws_category(int wtype, int *errind, int *wscat)
     *errind = GKS_K_ERROR;
 }
 
-void gks_inq_text_extent(
-  int wkid, double px, double py, char *str,
-  int *errind, double *cpx, double *cpy, double *tx, double *ty)
+void gks_inq_text_extent(int wkid, double px, double py, char *str, int *errind, double *cpx, double *cpy, double *tx,
+                         double *ty)
 {
-  if (gks_list_find(open_ws, wkid) != NULL)
+  if (gks_list_find(open_ws, wkid) != NULL && strlen(str) != 0)
     {
-      gks_util_inq_text_extent(px, py, str, strlen(str), cpx, cpy, tx, ty);
+      /* double the string length as the longest utf8 representation of any latin1 character is two bytes long */
+      char *utf8_str = gks_malloc(strlen(str) * 2 + 1);
+      gks_input2utf8(str, utf8_str, s->input_encoding);
+      gks_util_inq_text_extent(px, py, utf8_str, strlen(utf8_str), cpx, cpy, tx, ty);
       *errind = GKS_K_NO_ERROR;
+      gks_free(utf8_str);
     }
   else
     *errind = GKS_K_ERROR;
 }
 
-void gks_inq_max_ds_size(
-  int wtype, int *errind, int *dcunit, double *rx, double *ry, int *lx, int *ly)
+void gks_inq_max_ds_size(int wtype, int *errind, int *dcunit, double *rx, double *ry, int *lx, int *ly)
 {
   gks_list_t *element;
   ws_descr_t *ws;
 
   if ((element = gks_list_find(av_ws_types, wtype)) != NULL)
     {
-      ws = (ws_descr_t *) element->ptr;
+      ws = (ws_descr_t *)element->ptr;
 
       *errind = GKS_K_NO_ERROR;
       *dcunit = ws->dcunit;
@@ -2840,26 +2878,22 @@ void gks_emergency_close(void)
     {
       closing = 1;
 
-      if (state == GKS_K_SGOP)
-        gks_close_seg();
+      if (state == GKS_K_SGOP) gks_close_seg();
 
       if (state == GKS_K_WSAC)
         {
-          while (active_ws != NULL)
-            gks_deactivate_ws(active_ws->item);
+          while (active_ws != NULL) gks_deactivate_ws(active_ws->item);
         }
 
       if (state == GKS_K_WSOP)
         {
-          while (open_ws != NULL)
-            gks_close_ws(open_ws->item);
+          while (open_ws != NULL) gks_close_ws(open_ws->item);
         }
 
-      if (state == GKS_K_GKOP)
-        gks_close_gks();
+      if (state == GKS_K_GKOP) gks_close_gks();
 
-    closing = 0;
-  }
+      closing = 0;
+    }
 }
 
 void gks_set_text_slant(double slant)
@@ -2869,8 +2903,7 @@ void gks_set_text_slant(double slant)
       s->txslant = f_arr_1[0] = slant;
 
       /* call the device driver link routine */
-      gks_ddlk(SET_TEXT_SLANT,
-	0, 0, 0, i_arr, 1, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+      gks_ddlk(SET_TEXT_SLANT, 0, 0, 0, i_arr, 1, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -2887,8 +2920,7 @@ void gks_set_shadow(double offsetx, double offsety, double blur)
       s->blur = f_arr_1[2] = blur;
 
       /* call the device driver link routine */
-      gks_ddlk(SET_SHADOW,
-	0, 0, 0, i_arr, 3, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+      gks_ddlk(SET_SHADOW, 0, 0, 0, i_arr, 3, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -2903,8 +2935,7 @@ void gks_set_transparency(double alpha)
       s->alpha = f_arr_1[0] = alpha;
 
       /* call the device driver link routine */
-      gks_ddlk(SET_TRANSPARENCY,
-	0, 0, 0, i_arr, 1, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+      gks_ddlk(SET_TRANSPARENCY, 0, 0, 0, i_arr, 1, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
     }
   else
     /* GKS not in proper state. GKS must be in one of the states
@@ -2924,8 +2955,7 @@ void gks_set_coord_xform(double mat[3][2])
       f_arr_1[5] = mat[2][1];
 
       /* call the device driver link routine */
-      gks_ddlk(SET_COORD_XFORM,
-	0, 0, 0, i_arr, 6, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+      gks_ddlk(SET_COORD_XFORM, 0, 0, 0, i_arr, 6, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
     }
   else
     /* GKS not in proper state. GKS must be in one of the
@@ -2941,8 +2971,7 @@ void gks_begin_selection(int index, int kind)
       i_arr[1] = kind;
 
       /* call the device driver link routine */
-      gks_ddlk(BEGIN_SELECTION,
-	2, 1, 2, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+      gks_ddlk(BEGIN_SELECTION, 2, 1, 2, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
     }
   else
     /* GKS not in proper state. GKS must be either in the state
@@ -2955,8 +2984,7 @@ void gks_end_selection(void)
   if (state >= GKS_K_WSAC)
     {
       /* call the device driver link routine */
-      gks_ddlk(END_SELECTION,
-	0, 0, 0, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+      gks_ddlk(END_SELECTION, 0, 0, 0, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
     }
   else
     /* GKS not in proper state. GKS must be either in the state
@@ -2972,8 +3000,7 @@ void gks_move_selection(double x, double y)
       f_arr_2[0] = y;
 
       /* call the device driver link routine */
-      gks_ddlk(MOVE_SELECTION,
-	0, 0, 0, i_arr, 1, f_arr_1, 1, f_arr_2, 0, c_arr, NULL);
+      gks_ddlk(MOVE_SELECTION, 0, 0, 0, i_arr, 1, f_arr_1, 1, f_arr_2, 0, c_arr, NULL);
     }
   else
     /* GKS not in proper state. GKS must be either in the state
@@ -2990,8 +3017,7 @@ void gks_resize_selection(int kind, double x, double y)
       f_arr_2[0] = y;
 
       /* call the device driver link routine */
-      gks_ddlk(RESIZE_SELECTION,
-	1, 1, 1, i_arr, 1, f_arr_1, 1, f_arr_2, 0, c_arr, NULL);
+      gks_ddlk(RESIZE_SELECTION, 1, 1, 1, i_arr, 1, f_arr_1, 1, f_arr_2, 0, c_arr, NULL);
     }
   else
     /* GKS not in proper state. GKS must be either in the state
@@ -2999,33 +3025,29 @@ void gks_resize_selection(int kind, double x, double y)
     gks_report_error(RESIZE_SELECTION, 5);
 }
 
-void gks_draw_image(
-  double x, double y, double scalex, double scaley,
-  int width, int height, int *data)
+void gks_draw_image(double x, double y, double scalex, double scaley, int width, int height, int *data)
 {
   if (state >= GKS_K_WSAC)
     {
       if (width >= 1 && height >= 1)
-	{
-	  if (data != NULL)
-	    {
-	      f_arr_1[0] = x;
-	      f_arr_2[0] = y;
-	      f_arr_1[1] = scalex;
-	      f_arr_2[1] = scaley;
+        {
+          if (data != NULL)
+            {
+              f_arr_1[0] = x;
+              f_arr_2[0] = y;
+              f_arr_1[1] = scalex;
+              f_arr_2[1] = scaley;
 
-	      /* call the device driver link routine */
-	      gks_ddlk(DRAW_IMAGE,
-		width, height, width, data, 2, f_arr_1, 2, f_arr_2, 0, c_arr,
-		NULL);
-	    }
-	  else
-	    /* invalid image data pointer */
-	    gks_report_error(DRAW_IMAGE, 402);
-	}
+              /* call the device driver link routine */
+              gks_ddlk(DRAW_IMAGE, width, height, width, data, 2, f_arr_1, 2, f_arr_2, 0, c_arr, NULL);
+            }
+          else
+            /* invalid image data pointer */
+            gks_report_error(DRAW_IMAGE, 402);
+        }
       else
-	/* dimensions of image are invalid */
-	gks_report_error(DRAW_IMAGE, 401);
+        /* dimensions of image are invalid */
+        gks_report_error(DRAW_IMAGE, 401);
     }
   else
     /* GKS not in proper state. GKS must be either in the state
@@ -3033,8 +3055,7 @@ void gks_draw_image(
     gks_report_error(DRAW_IMAGE, 5);
 }
 
-void gks_inq_bbox(
-  int *errind, double *xmin, double *xmax, double *ymin, double *ymax)
+void gks_inq_bbox(int *errind, double *xmin, double *xmax, double *ymin, double *ymax)
 {
   if (state >= GKS_K_WSAC)
     {
@@ -3042,8 +3063,7 @@ void gks_inq_bbox(
       f_arr_2[0] = f_arr_2[1] = 0;
 
       /* call the device driver link routine */
-      gks_ddlk(INQ_BBOX,
-	0, 0, 0, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+      gks_ddlk(INQ_BBOX, 0, 0, 0, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
 
       *errind = GKS_K_NO_ERROR;
       *xmin = f_arr_1[0];
@@ -3061,13 +3081,12 @@ void gks_inq_text_slant(int *errind, double *slant)
   *slant = s->txslant;
 }
 
-static
-void gksrealloc(int n)
+static void gksrealloc(int n)
 {
   if (n > max_points)
     {
-      x = (double *) realloc(x, sizeof(double) * n);
-      y = (double *) realloc(y, sizeof(double) * n);
+      x = (double *)realloc(x, sizeof(double) * n);
+      y = (double *)realloc(y, sizeof(double) * n);
       max_points = n;
     }
 }
@@ -3082,8 +3101,8 @@ int gopengks(Gfile *errfile, Glong memory)
 
   if (gks_errno == 0)
     {
-      x = (double *) malloc(sizeof(double) * MAX_POINTS);
-      y = (double *) malloc(sizeof(double) * MAX_POINTS);
+      x = (double *)malloc(sizeof(double) * MAX_POINTS);
+      y = (double *)malloc(sizeof(double) * MAX_POINTS);
       max_points = MAX_POINTS;
     }
   return gks_errno;
@@ -3134,6 +3153,15 @@ int gdeactivatews(Gint workstation_id)
   int wkid = workstation_id;
 
   gks_deactivate_ws(wkid);
+
+  return gks_errno;
+}
+
+int gconfigurews(Gint workstation_id)
+{
+  int wkid = workstation_id;
+
+  gks_configure_ws(wkid);
 
   return gks_errno;
 }
@@ -3583,8 +3611,7 @@ int gcloseseg(void)
   return gks_errno;
 }
 
-int gevaltran(Gpoint *ppoint, Gpoint *pshift, Gfloat angle, Gscale *pscale,
-	      Gcsw coord, Gfloat result[2][3])
+int gevaltran(Gpoint *ppoint, Gpoint *pshift, Gfloat angle, Gscale *pscale, Gcsw coord, Gfloat result[2][3])
 {
   double x0, y0, tx, ty, phi, fx, fy;
   int isw, i, j;
@@ -3602,8 +3629,7 @@ int gevaltran(Gpoint *ppoint, Gpoint *pshift, Gfloat angle, Gscale *pscale,
   gks_eval_xform_matrix(x0, y0, tx, ty, phi, fx, fy, isw, tran);
 
   for (i = 0; i < 2; i++)
-    for (j = 0; j < 3; j++)
-      result[i][j] = tran[j][i];
+    for (j = 0; j < 3; j++) result[i][j] = tran[j][i];
 
   return gks_errno;
 }
@@ -3614,8 +3640,7 @@ int gsetsegtran(Gint segment_name, Gfloat segtran[2][3])
   double tran[3][2];
 
   for (i = 0; i < 2; i++)
-    for (j = 0; j < 3; j++)
-      tran[j][i] = segtran[i][j];
+    for (j = 0; j < 3; j++) tran[j][i] = segtran[i][j];
 
   gks_set_seg_xform(segn, tran);
 
@@ -3690,7 +3715,7 @@ int ginqtextpath(Gtxpath *text_path, Gint *error_status)
 
   gks_inq_text_path(&errind, &path);
 
-  *text_path = (Gtxpath) path;
+  *text_path = (Gtxpath)path;
   *error_status = errind;
 
   return OK;
@@ -3702,8 +3727,8 @@ int ginqtextalign(Gtxalign *align, Gint *error_status)
 
   gks_inq_text_align(&errind, &alh, &alv);
 
-  align->hor = (Gtxhor) alh;
-  align->ver = (Gtxver) alv;
+  align->hor = (Gtxhor)alh;
+  align->ver = (Gtxver)alv;
 
   return OK;
 }
@@ -3789,7 +3814,7 @@ int ginqtextfontprec(Gtxfp *txfp, Gint *error_status)
   gks_inq_text_fontprec(&errind, &font, &prec);
 
   txfp->font = font;
-  txfp->prec = (Gtxprec) prec;
+  txfp->prec = (Gtxprec)prec;
   *error_status = errind;
 
   return OK;
@@ -3912,7 +3937,7 @@ int ginqclip(Gcliprect *clipping, Gint *error_status)
   clipping->rec.xmax = clrt[1];
   clipping->rec.ymin = clrt[2];
   clipping->rec.ymax = clrt[3];
-  clipping->ind = (Gclip) clsw;
+  clipping->ind = (Gclip)clsw;
   *error_status = errind;
 
   return OK;
@@ -3931,8 +3956,7 @@ int ginqwscategory(Gwstype *workstation_type, Gint *cat, Gint *error_status)
   return OK;
 }
 
-int ginqdisplaysize(Gwstype *workstation_type, Gdspsize *dspsz,
-		    Gint *error_status)
+int ginqdisplaysize(Gwstype *workstation_type, Gdspsize *dspsz, Gint *error_status)
 {
   int wstype = *workstation_type;
   int errind, units, ras_x, ras_y;
@@ -3940,7 +3964,7 @@ int ginqdisplaysize(Gwstype *workstation_type, Gdspsize *dspsz,
 
   gks_inq_max_ds_size(wstype, &errind, &units, &px, &py, &ras_x, &ras_y);
 
-  dspsz->units = (Gdevunits) units;
+  dspsz->units = (Gdevunits)units;
   dspsz->device.x = px;
   dspsz->device.y = py;
   dspsz->raster.x = ras_x;
@@ -3950,8 +3974,7 @@ int ginqdisplaysize(Gwstype *workstation_type, Gdspsize *dspsz,
   return OK;
 }
 
-int ginqtextextent(Gint workstation_id, Gpoint *position, Gchar *string,
-		   Gextent *extent, Gint *error_status)
+int ginqtextextent(Gint workstation_id, Gpoint *position, Gchar *string, Gextent *extent, Gint *error_status)
 {
   int wkid = workstation_id, errind;
   double qx, qy, cpx, cpy, tx[4], ty[4];
@@ -3998,4 +4021,103 @@ int gemergencyclosegks(void)
 double gks_precision(void)
 {
   return FEPS;
+}
+
+/*!
+ * Set the resample method for up and downscaling. The default method is nearest neighbour.
+ *
+ * \param[in] flag Resample method, valid options are GKS_K_RESAMPLE_DEFAULT, GKS_K_RESAMPLE_LINEAR,
+ * GKS_K_RESAMPLE_NEAREST and GKS_K_RESAMPLE_LANCZOS, or combinations of the GKS_K_UPSAMPLE_* and GKS_K_DOWNSAMPLE_*
+ * flags
+ */
+void gks_set_resample_method(unsigned int flag)
+{
+  if (state >= GKS_K_GKOP)
+    {
+      unsigned int vertical_upsampling_method = (flag >> 0u) & 0xffu;
+      unsigned int horizontal_upsampling_method = (flag >> 8u) & 0xffu;
+      unsigned int vertical_downsampling_method = (flag >> 16u) & 0xffu;
+      unsigned int horizontal_downsampling_method = (flag >> 24u) & 0xffu;
+      if ((vertical_upsampling_method <= 3) && (horizontal_upsampling_method <= 3) &&
+          (vertical_downsampling_method <= 3) && (horizontal_downsampling_method <= 3))
+        {
+          s->resample_method = flag;
+          i_arr[0] = (int)flag;
+
+          /* call the device driver link routine */
+          gks_ddlk(SET_RESAMPLE_METHOD, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+        }
+      else
+        {
+          gks_report_error(SET_RESAMPLE_METHOD, 501);
+        }
+    }
+  else
+    {
+      gks_report_error(SET_RESAMPLE_METHOD, 8);
+    }
+}
+
+/*!
+ * Inquire the resample flag status.
+ *
+ * \returns Resample flag
+ */
+void gks_inq_resample_method(unsigned int *flag)
+{
+  *flag = s->resample_method;
+}
+
+void gks_set_border_width(double bwidth)
+{
+  if (state >= GKS_K_GKOP)
+    {
+      if (bwidth != s->bwidth)
+        {
+          s->bwidth = f_arr_1[0] = bwidth;
+
+          /* call the device driver link routine */
+          gks_ddlk(SET_BORDER_WIDTH, 0, 0, 0, i_arr, 1, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+        }
+    }
+  else
+    /* GKS not in proper state. GKS must be in one of the states
+       GKOP, WSOP, WSAC or SGOP */
+    gks_report_error(SET_BORDER_WIDTH, 8);
+}
+
+void gks_inq_border_width(int *errind, double *bwidth)
+{
+  *errind = GKS_K_NO_ERROR;
+  *bwidth = s->bwidth;
+}
+
+void gks_set_border_color_index(int coli)
+{
+  if (state >= GKS_K_GKOP)
+    {
+      if (coli >= 0)
+        {
+          if (coli != s->bcoli)
+            {
+              s->bcoli = i_arr[0] = coli;
+
+              /* call the device driver link routine */
+              gks_ddlk(SET_BORDER_COLOR_INDEX, 1, 1, 1, i_arr, 0, f_arr_1, 0, f_arr_2, 0, c_arr, NULL);
+            }
+        }
+      else
+        /* color index is invalid */
+        gks_report_error(SET_BORDER_COLOR_INDEX, 65);
+    }
+  else
+    /* GKS not in proper state. GKS must be in one of the states
+       GKOP, WSOP, WSAC or SGOP */
+    gks_report_error(SET_BORDER_COLOR_INDEX, 8);
+}
+
+void gks_inq_border_color_index(int *errind, int *coli)
+{
+  *errind = GKS_K_NO_ERROR;
+  *coli = s->bcoli;
 }

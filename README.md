@@ -15,10 +15,9 @@ It offers developers a compact, portable and consistent graphics library for
 their programs. Applications range from publication quality 2D graphs to the
 representation of complex 3D scenes.
 
-*GR* is essentially based on an implementation of a Graphical Kernel System (GKS)
-and OpenGL. As a self-contained system it can quickly and easily be integrated
-into existing applications (i.e. using the `ctypes` mechanism in Python or `ccall`
-in Julia).
+*GR* is essentially based on an implementation of a Graphical Kernel System (GKS).
+As a self-contained system it can quickly and easily be integrated into existing
+applications (i.e. using the `ctypes` mechanism in Python or `ccall` in Julia).
 
 The *GR* framework can be used in imperative programming systems or integrated
 into modern object-oriented systems, in particular those based on GUI toolkits.
@@ -30,7 +29,7 @@ or signal processing environments.
 Institute at Forschunsgzentrum Jülich. The main development has been done
 by Josef Heinen who currently maintains the software, but there are other
 developers who currently make valuable contributions. Special thanks to
-Florian Rhiem (*GR3*] and Christian Felder (qtgr, setup.py).
+Florian Rhiem (*GR3*) and Christian Felder (qtgr, setup.py).
 
 Starting with release 0.6 *GR* can be used as a backend
 for [Matplotlib](http://matplotlib.org) and significantly improve

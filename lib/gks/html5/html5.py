@@ -1,5 +1,5 @@
 import sys
-from math import sqrt, pi, atan2
+from math import sqrt, pi, atan2, isnan
 import zlib
 import struct
 import gks
@@ -145,14 +145,7 @@ class Html_output(object):
         color = self.p.rgb[tx_color]
         color.append(self.transparency)
 
-        if self.gkss.version > 4:
-            ln_width = round((self.p.width + self.p.height) * 0.001)
-            if ln_width < 1:
-                ln_width = 1
-        else:
-            ln_width = 1
-        if ln_width < 1:
-            ln_width = 1
+        ln_width = 1
         if self.p.fillStyle != color:
             self.p.fillStyle = color
             self.write('c.fillStyle="rgba({0},{1},{2},{3})";\n'.format(*color))
@@ -291,7 +284,7 @@ class Html_output(object):
 
     def fillarea(self, n, px, py):
         fl_color = self.gkss.facoli if self.gkss.asf[12] else 1
-        ln_width = max(1, round((self.p.width + self.p.height) * 0.001)) if self.gkss.version > 4 else 1
+        ln_width = 1
         if self.p.lineWidth != ln_width:
             self.p.lineWidth = ln_width
             self.write('c.lineWidth = {0};\n'.format(ln_width))
@@ -317,7 +310,10 @@ class Html_output(object):
             (xn, yn) = self.WC_to_NDC(px[i], py[i], self.gkss.cntnr)
             (xn, yn) = self.seg_xform(xn, yn)
             (xd, yd) = self.NDC_to_DC(xn, yn)
-            self.write('c.lineTo({0}, {1});\n'.format(xd, yd))
+            if isnan(px[i]) and isnan(py[i]):
+                self.write('c.moveTo({0}, {1});\n'.format(xd, yd))
+            else:
+                self.write('c.lineTo({0}, {1});\n'.format(xd, yd))
         self.write('c.closePath();\n')
 
         fl_inter = self.gkss.ints if self.gkss.asf[10] else predef_ints[self.gkss.findex - 1]
@@ -343,9 +339,9 @@ class Html_output(object):
             self.write('pctx.fill();\n')
             self.write('var pattern = c.createPattern(pcan, "repeat");\n')
             self.write('c.fillStyle = pattern;\n')
-            self.write('c.fill();\n')
+            self.write('c.fill("evenodd");\n')
         elif fl_inter == GKS_K_INTSTYLE_SOLID:
-            self.write('c.fill();\n')
+            self.write('c.fill("evenodd");\n')
         else:
             self.write('c.stroke();\n')
 
@@ -378,8 +374,6 @@ class Html_output(object):
         ln_type = self.gkss.ltype if self.gkss.asf[0] else self.gkss.lindex
         ln_color = self.gkss.plcoli if self.gkss.asf[2] else 1
 
-        if self.gkss.version > 4:
-            ln_width *= (self.p.width + self.p.height) * 0.001
         if ln_color <= 0 or ln_color >= MAX_COLOR:
             ln_color = 1
         ln_width = max(1, round(ln_width))
@@ -680,7 +674,7 @@ class Html_output(object):
             self.p.strokeStyle = color
             self.write('c.strokeStyle="rgba({0},{1},{2},{3})";\n'.format(*color))
 
-        ln_width = max(1, round((self.p.width + self.p.height) * 0.001)) if self.gkss.version > 4 else 1
+        ln_width = 1
         if self.p.lineWidth != ln_width:
             self.p.lineWidth = ln_width
             self.write('c.lineWidth = {0};\n'.format(ln_width))

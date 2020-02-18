@@ -1,52 +1,37 @@
       GRDIR = /usr/local/gr
      CONFIG = xft=no
-       DIRS = lib/gr lib/gr3
-ALL_DISTROS = centos centos6 debian suse
-ifeq ($(DISTROS),all)
-	override DISTROS = $(ALL_DISTROS)
-endif
 
 UNAME := $(shell uname)
 
-default: pre-check Makedefs
+default: all
 
 pre-check:
 	@lib/Precheck "${GRDIR}"  || \
 	( echo "FATAL: Source and target directory are identical"; exit 1 )
-	@make `uname`
 
 Makedefs:
 	@lib/Preflight $(CONFIG) >Makedefs
 
-Linux: all
-Darwin: all
-
-all:
-	@for d in $(DIRS); do make -C $$d GRDIR=$(GRDIR); done
-ifeq ($(UNAME), Darwin)
-	(env CC=cc xcodebuild -project lib/gks/quartz/GKSTerm.xcodeproj)
-endif
+all: pre-check
+	$(MAKE) -C lib/gks GRDIR=$(GRDIR)
+	$(MAKE) -C lib/gr GRDIR=$(GRDIR)
+	$(MAKE) -C lib/gr3 GRDIR=$(GRDIR)
 
 install: default
-	@for d in $(DIRS); do make -C $$d GRDIR=$(GRDIR) install; done
-ifeq ($(UNAME), Darwin)
-	@if [ ! -d $(DESTDIR)$(GRDIR)/Applications ]; then \
-	mkdir -m 755 $(DESTDIR)$(GRDIR)/Applications; fi
-	@ditto lib/gks/quartz/build/Release/GKSTerm.app \
-	$(DESTDIR)$(GRDIR)/Applications/GKSTerm.app 
-endif
+	$(MAKE) -C lib/gks GRDIR=$(GRDIR) install
+	$(MAKE) -C lib/gr GRDIR=$(GRDIR) install
+	$(MAKE) -C lib/gr3 GRDIR=$(GRDIR) install
 
 clean:
 	rm -f Makedefs
-	@for d in $(DIRS) 3rdparty; do make -C $$d clean; done
-ifeq ($(UNAME), Darwin)
-	(env CC=cc xcodebuild -project lib/gks/quartz/GKSTerm.xcodeproj clean)
-endif
-	cp -p lib/gks/quartz/project.pbxproj lib/gks/quartz/GKSTerm.xcodeproj/
+	$(MAKE) -C lib/gks clean
+	$(MAKE) -C lib/gr clean
+	$(MAKE) -C lib/gr3 clean
+	$(MAKE) -C 3rdparty clean
 	rm -f gr.pkg
 
 realclean: clean
-	make -C 3rdparty realclean
+	$(MAKE) -C 3rdparty realclean
 	rm -rf build
 	find packaging -type f \( -name '*.deb' -o -name '*.rpm' \) -exec rm \{\} \;
 	rm -rf tmp
@@ -64,22 +49,18 @@ osxpkg:
 	pkgbuild --identifier de.fz-juelich.gr --root tmp --install-location /usr/local --ownership preserve gr.pkg
 	sudo rm -rf tmp
 
-linuxpackages: DESTDIR=$(shell pwd)/tmp
-linuxpackages: GRDIR=/opt/gr
-linuxpackages:
-	echo $(DISTROS)
-	@which fpm >/dev/null 2>&1 || \
-	( echo "FATAL: fpm could not be found in PATH.\n       Visit https://github.com/jordansissel/fpm for more information on fpm."; exit 1 )
-	mkdir -p $(DESTDIR)$(GRDIR)
-	env DESTDIR=$(DESTDIR) GRDIR=$(GRDIR) sh 3rdparty/makeself.sh
-ifndef DISTROS
-	@./packaging/create_package.sh
+code-format:
+ifeq ($(UNAME), Darwin)
+	@find -E . -type f -regex '.*\.(c|cpp|cxx|m|h|hpp|hxx)' ! -path './3rdparty/*' -exec clang-format -i -verbose -style=file {} \;
+	@CMAKE_FORMAT="$$(./.setup_cmakeformat.sh)" && \
+	find -E . -type f -regex '(.*/CMakeLists\.txt)|(.*\.cmake)' ! -path './3rdparty/*' \
+	          -exec echo "Formatting "{} \; -exec "$${CMAKE_FORMAT}" -i {} \;
 else
-	@for DISTRO in $(DISTROS); do \
-		./packaging/create_package.sh "$${DISTRO}"; \
-	done
+	@find . -type f -regextype posix-extended -regex '.*\.(c|cpp|cxx|m|h|hpp|hxx)' ! -path './3rdparty/*' -exec clang-format -i -verbose -style=file {} \;
+	@CMAKE_FORMAT="$$(./.setup_cmakeformat.sh)" && \
+	find . -type f -regextype posix-extended -regex '(.*/CMakeLists\.txt)|(.*\.cmake)' ! -path './3rdparty/*' \
+	       -exec echo "Formatting "{} \; -exec "$${CMAKE_FORMAT}" -i {} \;
 endif
-	rm -rf $(DESTDIR)
 
-mirror:
-	(cd ../gr-github && git fetch && git push)
+
+.PHONY: default pre-check all install clean realclean self osxpkg code-format

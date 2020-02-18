@@ -1,5 +1,5 @@
-#ifndef GRWIDGET_H_INCLUDED
-#define GRWIDGET_H_INCLUDED
+#ifndef _GRWIDGET_H_
+#define _GRWIDGET_H_
 
 #include <QWidget>
 #include <QMouseEvent>
@@ -21,39 +21,41 @@
 
 // ##################### Base GRWidget #########################################
 
-class DLL GRWidget : public QWidget {
-    public:
-        GRWidget(QWidget *parent = 0);
+class DLL GRWidget : public QWidget
+{
+public:
+  GRWidget(QWidget *parent = 0);
 
-    protected:
-        void paintEvent(QPaintEvent *event);
-        virtual void clear_background(QPainter &painter);
-        virtual void draw() = 0;
+protected:
+  void paintEvent(QPaintEvent *event);
+  virtual void clear_background(QPainter &painter);
+  virtual void draw() = 0;
 
-    private:
-        void init_gks();
+private:
+  void init_gks();
 };
 
 
 // ##################### Interactive GRWidget ##################################
 
-class DLL InteractiveGRWidget : public GRWidget {
-    public:
-        InteractiveGRWidget(QWidget *parent = 0);
+class DLL InteractiveGRWidget : public GRWidget
+{
+public:
+  InteractiveGRWidget(QWidget *parent = 0);
 
-    protected:
-        void paintEvent(QPaintEvent *event);
-        void mouseMoveEvent(QMouseEvent *event);
-        void mousePressEvent(QMouseEvent *event);
-        void mouseReleaseEvent(QMouseEvent *event);
-        void wheelEvent(QWheelEvent *event);
-        void keyPressEvent(QKeyEvent *event);
+protected:
+  void paintEvent(QPaintEvent *event);
+  void mouseMoveEvent(QMouseEvent *event);
+  void mousePressEvent(QMouseEvent *event);
+  void mouseReleaseEvent(QMouseEvent *event);
+  void wheelEvent(QWheelEvent *event);
+  void keyPressEvent(QKeyEvent *event);
 
-    private:
-        void set_xform(void);
-        QRubberBand *rubberBand;
-        QPoint drag_start;
-        QRect zoom_rect;
+private:
+  void set_xform(void);
+  QRubberBand *rubberBand;
+  QPoint drag_start;
+  QRect zoom_rect;
 };
 
 #undef DLL

@@ -1,4 +1,13 @@
+ifeq ($(strip $(PREFIX)),)
+override PREFIX = $(abspath $(CURDIR)/../build)
+endif
+
   CFLAGS = -O -I. -fPIC -fno-common $(ARCHS)
+ifeq ($(shell uname),Darwin)
+ifneq ($(notdir $(CC)),emcc)
+ CFLAGS += -mmacosx-version-min=10.11
+endif
+endif
     OBJS = \
         jaricom.o \
         jcapimin.o \
@@ -47,6 +56,8 @@
         jquant2.o \
         jutils.o
 
+default: install
+
 libjpeg.a: $(OBJS)
 	$(AR) crv $@ $?
 	$(AR) ts $@
@@ -55,6 +66,14 @@ distclean: clean
 
 clean:
 	rm -f libjpeg.a *.o *.bak
+
+$(PREFIX)/lib/libjpeg.a: libjpeg.a
+	mkdir -p $(PREFIX)/lib/
+	mkdir -p $(PREFIX)/include/
+	cp libjpeg.a $(PREFIX)/lib/
+	cp *.h $(PREFIX)/include/
+
+install: $(PREFIX)/lib/libjpeg.a
 
 depend:
 	makedepend -Y -- \
@@ -104,6 +123,8 @@ depend:
         jquant1.c \
         jquant2.c \
         jutils.c 2> /dev/null
+
+.PHONY: default install clean distclean depend
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 

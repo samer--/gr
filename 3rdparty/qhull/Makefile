@@ -1,4 +1,13 @@
+ifeq ($(strip $(PREFIX)),)
+override PREFIX = $(abspath $(CURDIR)/../build)
+endif
+
  CFLAGS = -O -fPIC -fno-common $(ARCHS)
+ifeq ($(shell uname),Darwin)
+ifneq ($(notdir $(CC)),emcc)
+CFLAGS += -mmacosx-version-min=10.11
+endif
+endif
    LIBS = libqhull.a
 
    OBJS = \
@@ -20,6 +29,8 @@
         rboxlib.o \
         userprintf_rbox.o
 
+default: install
+
 libqhull.a: $(OBJS)
 	$(AR) crv $@ $?
 	$(AR) ts $@
@@ -28,6 +39,14 @@ distclean: clean
 
 clean:
 	rm -f libqhull.a *.o
+
+$(PREFIX)/lib/libqhull.a: libqhull.a
+	mkdir -p $(PREFIX)/lib/
+	mkdir -p $(PREFIX)/include/qhull
+	cp libqhull.a $(PREFIX)/lib/
+	cp *.h $(PREFIX)/include/qhull/
+
+install: $(PREFIX)/lib/libqhull.a
 
 depend:
 	makedepend -Y -- \
@@ -48,6 +67,8 @@ depend:
         user.c \
         rboxlib.c \
         userprintf_rbox.c 2> /dev/null
+
+.PHONY: default install clean distclean depend
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
